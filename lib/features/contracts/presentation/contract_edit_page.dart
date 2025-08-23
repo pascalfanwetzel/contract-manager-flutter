@@ -106,7 +106,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _categoryId,
+                  initialValue: _categoryId,
                   items: cats
                       .map<DropdownMenuItem<String>>(
                         (c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name)),
@@ -157,7 +157,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _currency,
+                  initialValue: _currency,
                   items: const [
                     DropdownMenuItem<String>(value: '€', child: Text('€ EUR')),
                     DropdownMenuItem<String>(value: '\$', child: Text('\$ USD')),
@@ -173,7 +173,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
 
           // Billing cycle
           DropdownButtonFormField<BillingCycle>(
-            value: _cycle,
+            initialValue: _cycle,
             items: BillingCycle.values
                 .map<DropdownMenuItem<BillingCycle>>(
                   (c) => DropdownMenuItem<BillingCycle>(value: c, child: Text(c.label)),
@@ -186,7 +186,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
 
           // Payment method
           DropdownButtonFormField<PaymentMethod>(
-            value: _pay,
+            initialValue: _pay,
             items: PaymentMethod.values
                 .map<DropdownMenuItem<PaymentMethod>>(
                   (m) => DropdownMenuItem<PaymentMethod>(

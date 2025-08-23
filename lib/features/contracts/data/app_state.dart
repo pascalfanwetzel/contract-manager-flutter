@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import '../domain/models.dart';
 
 class AppState extends ChangeNotifier {
-  // Default categories (editable list; builtIn marks defaults)
   final List<ContractGroup> _categories = [
     const ContractGroup(id: 'cat_home', name: 'Home', builtIn: true),
     const ContractGroup(id: 'cat_subs', name: 'Subscriptions', builtIn: true),
@@ -39,8 +38,10 @@ class AppState extends ChangeNotifier {
   // READ
   List<ContractGroup> get categories => List.unmodifiable(_categories);
   List<Contract> get contracts => List.unmodifiable(_contracts);
-  ContractGroup? categoryById(String id) =>
-      _categories.firstWhere((c) => c.id == id, orElse: () => const ContractGroup(id: 'cat_other', name: 'Other', builtIn: true));
+  ContractGroup? categoryById(String id) => _categories.firstWhere(
+        (c) => c.id == id,
+        orElse: () => const ContractGroup(id: 'cat_other', name: 'Other', builtIn: true),
+      );
 
   // MUTATE
   void addContract(Contract c) {
@@ -79,10 +80,10 @@ class AppState extends ChangeNotifier {
 
   void deleteCategory(String id) {
     if (_categories.any((c) => c.id == id && c.builtIn)) return; // keep defaults
-    _contracts
-        .where((c) => c.categoryId == id)
-        .toList()
-        .forEach((c) => updateContract(c.copyWith(categoryId: 'cat_other')));
+    // move contracts to "Other" when their group is deleted
+    for (final c in _contracts.where((c) => c.categoryId == id).toList()) {
+      updateContract(c.copyWith(categoryId: 'cat_other'));
+    }
     _categories.removeWhere((c) => c.id == id);
     notifyListeners();
   }

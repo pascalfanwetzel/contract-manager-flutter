@@ -1,37 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../features/contracts/data/app_state.dart';
-import '../features/overview/presentation/overview_page.dart';
-import '../features/contracts/presentation/contracts_page.dart';
-import '../features/reminders/presentation/reminders_page.dart';
-import '../features/profile/presentation/profile_page.dart';
+import 'routes.dart';
 
-class HomeShell extends StatefulWidget {
+class HomeShell extends StatelessWidget {
   final AppState state;
-  const HomeShell({super.key, required this.state});
+  final Widget child; // current routed page
+  const HomeShell({super.key, required this.state, required this.child});
 
-  @override
-  State<HomeShell> createState() => _HomeShellState();
-}
-
-class _HomeShellState extends State<HomeShell> {
-  int _index = 0;
+  int _indexFromLocation(String loc) {
+    if (loc.startsWith(AppRoutes.contracts)) return 1;
+    if (loc.startsWith(AppRoutes.reminders)) return 2;
+    if (loc.startsWith(AppRoutes.profile)) return 3;
+    return 0; // overview default
+    }
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      OverviewPage(state: widget.state),
-      ContractsPage(state: widget.state),
-      RemindersPage(state: widget.state),
-      ProfilePage(state: widget.state),
+    final loc = GoRouterState.of(context).uri.toString();
+    final idx = _indexFromLocation(loc);
+    final paths = const [
+      AppRoutes.overview,
+      AppRoutes.contracts,
+      AppRoutes.reminders,
+      AppRoutes.profile,
     ];
 
     return Scaffold(
-      body: SafeArea(
-        child: IndexedStack(index: _index, children: pages),
-      ),
+      body: SafeArea(child: child),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        selectedIndex: idx,
+        onDestinationSelected: (i) => context.go(paths[i]),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),

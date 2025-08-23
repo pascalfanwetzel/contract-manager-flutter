@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
 import '../domain/models.dart';
 import '../data/app_state.dart';
-import 'add_contract_page.dart';
-import 'contract_view.dart';
 import 'widgets.dart';
+import '../../../app/routes.dart' as r;
 
 class ContractsPage extends StatefulWidget {
   final AppState state;
@@ -36,13 +37,14 @@ class _ContractsPageState extends State<ContractsPage> {
           final matchQ = query.isEmpty ||
               c.title.toLowerCase().contains(query) ||
               c.provider.toLowerCase().contains(query);
-          final matchCat = _selectedCategoryId == null || c.categoryId == _selectedCategoryId;
+          final matchCat =
+              _selectedCategoryId == null || c.categoryId == _selectedCategoryId;
           return matchQ && matchCat;
         }).toList();
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Contracts (v2)'), // ← visible smoke test
+            title: const Text('Contracts'),
             actions: [
               IconButton(
                 tooltip: 'Manage categories',
@@ -73,13 +75,8 @@ class _ContractsPageState extends State<ContractsPage> {
                     const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: () async {
-                        final newC = await Navigator.push<Contract>(
-                          context,
-                          MaterialPageRoute(
-                            // IMPORTANT: this is the new Add page with cost/payment fields
-                            builder: (_) => AddContractPage(state: widget.state),
-                          ),
-                        );
+                        final newC =
+                            await context.push<Contract>(r.AppRoutes.contractNew);
                         if (newC != null) widget.state.addContract(newC);
                       },
                       icon: const Icon(Icons.add),
@@ -97,7 +94,8 @@ class _ContractsPageState extends State<ContractsPage> {
                       FilterChip(
                         label: const Text('All'),
                         selected: _selectedCategoryId == null,
-                        onSelected: (_) => setState(() => _selectedCategoryId = null),
+                        onSelected: (_) =>
+                            setState(() => _selectedCategoryId = null),
                       ),
                       const SizedBox(width: 8),
                       ...categories.map((cat) => Padding(
@@ -106,7 +104,8 @@ class _ContractsPageState extends State<ContractsPage> {
                               avatar: Icon(cat.icon, size: 18),
                               label: Text(cat.name),
                               selected: _selectedCategoryId == cat.id,
-                              onSelected: (_) => setState(() => _selectedCategoryId = cat.id),
+                              onSelected: (_) =>
+                                  setState(() => _selectedCategoryId = cat.id),
                             ),
                           )),
                       const SizedBox(width: 8),
@@ -136,24 +135,20 @@ class _ContractsPageState extends State<ContractsPage> {
                       ? const Center(child: Text('No contracts'))
                       : ListView.separated(
                           itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
                           itemBuilder: (_, i) {
                             final c = filtered[i];
-                            final cat = widget.state.categoryById(c.categoryId)!;
+                            final cat =
+                                widget.state.categoryById(c.categoryId)!;
                             return ContractTile(
                               contract: c,
                               category: cat,
                               onDetails: () async {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ContractView(
-                                      state: widget.state,
-                                      contract: c,
-                                    ),
-                                  ),
+                                await context.push(
+                                  r.AppRoutes.contractDetails(c.id),
                                 );
-                                setState(() {});
+                                // state is a ChangeNotifier; UI will rebuild via AnimatedBuilder
                               },
                             );
                           },
@@ -177,22 +172,31 @@ class _ContractsPageState extends State<ContractsPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(title),
-        content: TextField(controller: ctrl, decoration: InputDecoration(hintText: hint), autofocus: true),
+        content: TextField(
+          controller: ctrl,
+          decoration: InputDecoration(hintText: hint),
+          autofocus: true,
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Create')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+              child: const Text('Create')),
         ],
       ),
     );
   }
 }
 
-// Simple “Manage categories” dialog (rename/delete)
+// Manage categories dialog (rename/delete custom groups)
 class _ManageCategoriesDialog extends StatefulWidget {
   final AppState state;
   const _ManageCategoriesDialog({required this.state});
   @override
-  State<_ManageCategoriesDialog> createState() => _ManageCategoriesDialogState();
+  State<_ManageCategoriesDialog> createState() =>
+      _ManageCategoriesDialogState();
 }
 
 class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
@@ -224,10 +228,16 @@ class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
                         context: context,
                         builder: (_) => AlertDialog(
                           title: const Text('Rename category'),
-                          content: TextField(controller: ctrl, autofocus: true),
+                          content:
+                              TextField(controller: ctrl, autofocus: true),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                            FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Save')),
+                            TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Cancel')),
+                            FilledButton(
+                                onPressed: () => Navigator.pop(
+                                    context, ctrl.text.trim()),
+                                child: const Text('Save')),
                           ],
                         ),
                       );
@@ -238,7 +248,8 @@ class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
                     },
                   ),
                   IconButton(
-                    tooltip: cat.builtIn ? 'Cannot delete default' : 'Delete',
+                    tooltip:
+                        cat.builtIn ? 'Cannot delete default' : 'Delete',
                     icon: const Icon(Icons.delete_outline),
                     onPressed: cat.builtIn
                         ? null
@@ -254,7 +265,9 @@ class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close')),
       ],
     );
   }

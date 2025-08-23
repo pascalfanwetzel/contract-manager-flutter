@@ -1,26 +1,23 @@
 import 'package:flutter/material.dart';
-import '../features/contracts/data/app_state.dart';
-import 'shell.dart';
+import 'router.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final state = AppState(); // single source of truth (in-memory for now)
-
-    return MaterialApp(
-      title: 'Contract Manager',
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
+      title: 'Contract Manager',
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color.fromARGB(255, 255, 255, 255).fromARGB(255, 213, 222, 221),
+        colorSchemeSeed: const Color.fromARGB(255, 213, 222, 221),
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
           isDense: true,
         ),
       ),
-      home: HomeShell(state: state),
+      routerConfig: router,
     );
   }
 }
