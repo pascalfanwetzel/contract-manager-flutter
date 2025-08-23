@@ -1,0 +1,192 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../domain/models.dart';
+import '../data/app_state.dart';
+import '../../../app/routes.dart' as r;
+import 'widgets.dart';
+
+class ContractView extends StatelessWidget {
+  final AppState state;
+  final Contract contract;
+  const ContractView({super.key, required this.state, required this.contract});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = contract;
+    final cat = state.categoryById(c.categoryId)!;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Contract'),
+        actions: [
+          IconButton(
+            tooltip: 'Edit',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () async {
+              final updated = await context.push<Contract>(
+                r.AppRoutes.contractNew,
+                extra: c, // pass the current contract to edit
+              );
+              if (updated != null) state.updateContract(updated);
+            },
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              Chip(
+                label: Text(c.isExpired ? 'Expired' : 'Active'),
+                avatar: Icon(
+                  c.isExpired ? Icons.timer_off_outlined : Icons.check_circle,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(c.title, style: Theme.of(context).textTheme.titleLarge),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Summary
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _kv('Provider', c.provider),
+                  _kv('Category', cat.name),
+                  _kv('Start', formatDate(c.startDate)),
+                  _kv('End', c.isOpenEnded ? 'Open end' : formatDate(c.endDate)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Costs & payment
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _kv('Cost', formatMoney(c.costAmount, c.costCurrency)),
+                  _kv('Interval', formatCycle(c.billingCycle)),
+                  _kv('Payment', c.paymentMethod?.label ?? '—'),
+                  if (c.paymentMethod == PaymentMethod.other &&
+                      (c.paymentNote ?? '').isNotEmpty)
+                    _kv('Payment details', c.paymentNote!),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Attachments (placeholder)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text('Attachments'),
+              subtitle:
+                  const Text('Add PDFs/images via Edit (coming soon)'),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Notes (placeholder)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.notes_outlined),
+              title: const Text('Notes'),
+              subtitle:
+                  const Text('Add notes to this contract (coming soon)'),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          if (!c.isExpired && !c.isOpenEnded)
+            OutlinedButton.icon(
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('End contract'),
+                    content: const Text(
+                        'Mark this contract as ended today?'),
+                    actions: [
+                      TextButton(
+                          onPressed: () =>
+                              Navigator.pop(context, false),
+                          child: const Text('Cancel')),
+                      FilledButton(
+                          onPressed: () =>
+                              Navigator.pop(context, true),
+                          child: const Text('End')),
+                    ],
+                  ),
+                );
+                if (ok == true) {
+                  state.updateContract(c.copyWith(endDate: DateTime.now()));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Contract ended')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.stop_circle_outlined),
+              label: const Text('End contract'),
+            ),
+          const SizedBox(height: 8),
+
+          TextButton.icon(
+            onPressed: () async {
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Delete contract'),
+                  content: const Text('This cannot be undone.'),
+                  actions: [
+                    TextButton(
+                        onPressed: () =>
+                            Navigator.pop(context, false),
+                        child: const Text('Cancel')),
+                    FilledButton(
+                        onPressed: () =>
+                            Navigator.pop(context, true),
+                        child: const Text('Delete')),
+                  ],
+                ),
+              );
+              if (ok == true) {
+                state.removeContract(c.id);
+                Navigator.pop(context);
+              }
+            },
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _kv(String k, String v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 140,
+              child: Text(
+                k,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Expanded(child: Text(v)),
+          ],
+        ),
+      );
+}
