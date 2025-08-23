@@ -43,3 +43,36 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase configs
+android/app/google-services.json
+**/google-services.json
+ios/Runner/GoogleService-Info.plist
+**/GoogleService-Info.plist
+android/app/*.keystore
+android/app/*.jks
+android/key.properties
+
+# Android local state
+android/.gradle/
+android/local.properties
+
+# iOS CocoaPods & generated bits
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Runner/GeneratedPluginRegistrant.*
+
+# Firebase emulator/logs (if you ever use them)
+.firebase/
+firestore-debug.log
+firebase-debug.log
+
+# Env/secrets (just in case)
+*.env
+*.env.* 
+**/*serviceAccount*.json
+*.p12
+
+
