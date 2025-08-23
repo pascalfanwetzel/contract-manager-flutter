@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../domain/models.dart';
 
+/// Reusable widgets and formatting helpers for contract UI.
+
 class ContractTile extends StatelessWidget {
   final Contract contract;
   final ContractGroup category;

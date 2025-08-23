@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../contracts/data/app_state.dart';
 import '../../contracts/presentation/widgets.dart';
-import '../../contracts/presentation/contract_view.dart';
+import 'package:go_router/go_router.dart';
+import '../../../app/routes.dart' as r;
 
 class OverviewPage extends StatelessWidget {
   final AppState state;
@@ -41,12 +42,8 @@ class OverviewPage extends StatelessWidget {
                     return ContractTile(
                       contract: c,
                       category: cat,
-                      onDetails: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ContractView(state: state, contract: c),
-                        ),
-                      ),
+                      onDetails: () =>
+                          context.push(r.AppRoutes.contractDetails(c.id)),
                     );
                   },
                 ),

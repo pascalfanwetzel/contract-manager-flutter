@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:uuid/uuid.dart';
-import '../domain/contract.dart';
+import '../domain/models.dart';
 import 'contracts_repo.dart';
 
 class ContractsRepoMemory implements ContractsRepo {
@@ -20,7 +20,22 @@ class ContractsRepoMemory implements ContractsRepo {
   @override
   Future<String> add(Contract c) async {
     final id = _uuid.v4();
-    _items.add(Contract(id: id, title: c.title, provider: c.provider, endDate: c.endDate));
+    _items.add(
+      Contract(
+        id: id,
+        title: c.title,
+        provider: c.provider,
+        categoryId: c.categoryId,
+        costAmount: c.costAmount,
+        costCurrency: c.costCurrency,
+        billingCycle: c.billingCycle,
+        paymentMethod: c.paymentMethod,
+        paymentNote: c.paymentNote,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        isOpenEnded: c.isOpenEnded,
+      ),
+    );
     _emit();
     return id;
   }

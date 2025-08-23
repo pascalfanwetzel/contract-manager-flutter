@@ -1,4 +1,4 @@
-import '../domain/contract.dart';
+import '../domain/models.dart';
 
 abstract class ContractsRepo {
   Stream<List<Contract>> watchAll();
