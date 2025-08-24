@@ -128,12 +128,18 @@ class _ContractEditPageState extends State<ContractEditPage> {
                   final ctrl = TextEditingController();
                   final name = await showDialog<String>(
                     context: context,
-                    builder: (_) => AlertDialog(
+                    builder: (dialogContext) => AlertDialog(
                       title: const Text('New category'),
                       content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: 'e.g. Insurance')),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                        FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Create')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(dialogContext, ctrl.text.trim()),
+                          child: const Text('Create'),
+                        ),
                       ],
                     ),
                   );
