@@ -106,14 +106,19 @@ class _ContractEditPageState extends State<ContractEditPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  initialValue: _categoryId,
+                  value: cats.isEmpty ? null : _categoryId,
                   items: cats
                       .map<DropdownMenuItem<String>>(
                         (c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name)),
                       )
                       .toList(),
-                  onChanged: (String? v) => setState(() => _categoryId = v ?? _categoryId),
-                  decoration: const InputDecoration(labelText: 'Category'),
+                  onChanged: cats.isEmpty
+                      ? null
+                      : (String? v) => setState(() => _categoryId = v ?? _categoryId),
+                  decoration: InputDecoration(
+                    labelText: 'Category',
+                    hintText: cats.isEmpty ? 'No categories available' : null,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
