@@ -8,51 +8,44 @@ class HomeShell extends StatelessWidget {
   final Widget child; // current routed page
   const HomeShell({super.key, required this.state, required this.child});
 
-  int _indexFromLocation(String loc) {
-    if (loc.startsWith(AppRoutes.contracts)) return 1;
-    if (loc.startsWith(AppRoutes.reminders)) return 2;
-    if (loc.startsWith(AppRoutes.profile)) return 3;
-    return 0; // overview default
+    int _indexFromLocation(String loc) {
+      if (loc.startsWith(AppRoutes.contracts)) return 1;
+      if (loc.startsWith(AppRoutes.profile)) return 2;
+      return 0; // overview default
     }
 
   @override
   Widget build(BuildContext context) {
     final loc = GoRouterState.of(context).uri.toString();
     final idx = _indexFromLocation(loc);
-    final paths = const [
-      AppRoutes.overview,
-      AppRoutes.contracts,
-      AppRoutes.reminders,
-      AppRoutes.profile,
-    ];
+      final paths = const [
+        AppRoutes.overview,
+        AppRoutes.contracts,
+        AppRoutes.profile,
+      ];
 
     return Scaffold(
       body: SafeArea(child: child),
       bottomNavigationBar: NavigationBar(
         selectedIndex: idx,
         onDestinationSelected: (i) => context.go(paths[i]),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Overview',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.description_outlined),
-            selectedIcon: Icon(Icons.description),
-            label: 'Contracts',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_active_outlined),
-            selectedIcon: Icon(Icons.notifications_active),
-            label: 'Reminders',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Overview',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.description_outlined),
+              selectedIcon: Icon(Icons.description),
+              label: 'Contracts',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
       ),
     );
   }

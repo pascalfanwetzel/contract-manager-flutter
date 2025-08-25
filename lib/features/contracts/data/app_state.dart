@@ -37,7 +37,10 @@ class AppState extends ChangeNotifier {
 
   // READ
   List<ContractGroup> get categories => List.unmodifiable(_categories);
-  List<Contract> get contracts => List.unmodifiable(_contracts);
+  List<Contract> get contracts =>
+      List.unmodifiable(_contracts.where((c) => !c.isDeleted));
+  List<Contract> get trashedContracts =>
+      List.unmodifiable(_contracts.where((c) => c.isDeleted));
   ContractGroup? categoryById(String id) => _categories.firstWhere(
         (c) => c.id == id,
         orElse: () => const ContractGroup(id: 'cat_other', name: 'Other', builtIn: true),
@@ -57,8 +60,22 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void removeContract(String id) {
+  void deleteContract(String id) {
+    final i = _contracts.indexWhere((e) => e.id == id);
+    if (i != -1) {
+      final c = _contracts[i];
+      _contracts[i] = c.copyWith(isActive: false, isDeleted: true);
+      notifyListeners();
+    }
+  }
+
+  void purgeContract(String id) {
     _contracts.removeWhere((e) => e.id == id);
+    notifyListeners();
+  }
+
+  void purgeAll() {
+    _contracts.removeWhere((e) => e.isDeleted);
     notifyListeners();
   }
 
