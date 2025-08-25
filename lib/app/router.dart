@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/contracts/data/app_state.dart';
 import '../features/overview/presentation/overview_page.dart';
@@ -37,10 +38,12 @@ final router = GoRouter(
               path: ':id',
               builder: (context, state) {
                 final id = state.pathParameters['id']!;
-                final c = appState.contracts.firstWhere(
-                  (e) => e.id == id,
-                  orElse: () => appState.contracts.first, // naive fallback
-                );
+                final c = appState.contractById(id);
+                if (c == null) {
+                  return const Scaffold(
+                    body: Center(child: Text('Contract not found')),
+                  );
+                }
                 return ContractView(state: appState, contract: c);
               },
             ),

@@ -41,6 +41,13 @@ class AppState extends ChangeNotifier {
       List.unmodifiable(_contracts.where((c) => !c.isDeleted));
   List<Contract> get trashedContracts =>
       List.unmodifiable(_contracts.where((c) => c.isDeleted));
+  Contract? contractById(String id) {
+    try {
+      return _contracts.firstWhere((c) => c.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
   ContractGroup? categoryById(String id) => _categories.firstWhere(
         (c) => c.id == id,
         orElse: () => const ContractGroup(id: 'cat_other', name: 'Other', builtIn: true),

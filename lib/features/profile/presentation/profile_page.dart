@@ -9,6 +9,15 @@ class ProfilePage extends StatelessWidget {
   final AppState state;
   const ProfilePage({super.key, required this.state});
 
+  void _openSection(BuildContext context, String title, Widget view) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(appBar: AppBar(title: Text(title)), body: view),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
