@@ -16,18 +16,18 @@ class ProfilePage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Profile'),
-          bottom: const TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(text: 'User Info'),
-              Tab(text: 'Notifications & Reminders'),
-              Tab(text: 'Privacy'),
-              Tab(text: 'Data & Storage'),
-            ],
-          ),
         ),
         body: Column(
           children: [
+            const TabBar(
+              isScrollable: true,
+              tabs: [
+                Tab(text: 'User Info'),
+                Tab(text: 'Notifications & Reminders'),
+                Tab(text: 'Privacy'),
+                Tab(text: 'Data & Storage'),
+              ],
+            ),
             Expanded(
               child: TabBarView(
                 physics: const NeverScrollableScrollPhysics(),

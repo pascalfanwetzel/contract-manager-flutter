@@ -20,17 +20,18 @@ class ContractView extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Contract'),
         actions: [
-          IconButton(
-            tooltip: 'Edit',
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () async {
-              final updated = await context.push<Contract>(
-                r.AppRoutes.contractNew,
-                extra: c, // pass the current contract to edit
-              );
-              if (updated != null) state.updateContract(updated);
-            },
-          ),
+          if (!c.isDeleted)
+            IconButton(
+              tooltip: 'Edit',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () async {
+                final updated = await context.push<Contract>(
+                  r.AppRoutes.contractNew,
+                  extra: c, // pass the current contract to edit
+                );
+                if (updated != null) state.updateContract(updated);
+              },
+            ),
         ],
       ),
       body: ListView(

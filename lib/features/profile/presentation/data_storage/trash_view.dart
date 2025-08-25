@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../contracts/data/app_state.dart';
+import '../../../contracts/presentation/widgets.dart';
+import '../../../../app/routes.dart' as r;
 
 class TrashView extends StatefulWidget {
   final AppState state;
@@ -71,7 +74,9 @@ class _TrashViewState extends State<TrashView> {
                               ),
                             );
                             if (ok == true) {
+                              if (!mounted) return;
                               widget.state.purgeAll();
+                              setState(() {});
                             }
                           },
                     child: const Text('Delete all'),
@@ -80,17 +85,24 @@ class _TrashViewState extends State<TrashView> {
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (_, i) {
-                  final c = filtered[i];
-                  return ListTile(
-                    title: Text(c.title),
-                    subtitle: Text(c.provider),
-                  );
-                },
-              ),
+              child: filtered.isEmpty
+                  ? const Center(child: Text('No trashed contracts'))
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        final c = filtered[i];
+                        final cat =
+                            widget.state.categoryById(c.categoryId)!;
+                        return ContractTile(
+                          contract: c,
+                          category: cat,
+                          onDetails: () =>
+                              context.push(r.AppRoutes.contractDetails(c.id)),
+                        );
+                      },
+                    ),
             ),
           ],
         );
