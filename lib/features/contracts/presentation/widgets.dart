@@ -15,12 +15,16 @@ class ContractTile extends StatelessWidget {
     required this.onDetails,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final status = contract.isExpired ? 'Expired' : 'Active';
-    final statusColor = contract.isExpired
-        ? Theme.of(context).colorScheme.errorContainer
-        : Theme.of(context).colorScheme.secondaryContainer;
+    @override
+    Widget build(BuildContext context) {
+      final status = contract.isActive
+          ? (contract.isExpired ? 'Expired' : 'Active')
+          : 'Inactive';
+      final statusColor = contract.isActive
+          ? (contract.isExpired
+              ? Theme.of(context).colorScheme.errorContainer
+              : Theme.of(context).colorScheme.secondaryContainer)
+          : Theme.of(context).colorScheme.errorContainer;
 
     return Card(
       child: ListTile(

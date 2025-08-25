@@ -39,14 +39,20 @@ class ContractView extends StatelessWidget {
           Row(
             children: [
               Chip(
-                label: Text(c.isExpired ? 'Expired' : 'Active'),
+                label: Text(c.isActive ? 'Active' : 'Inactive'),
                 avatar: Icon(
-                  c.isExpired ? Icons.timer_off_outlined : Icons.check_circle,
+                  c.isActive ? Icons.check_circle : Icons.close,
                   size: 18,
+                  color: c.isActive ? null : Colors.red,
                 ),
               ),
               const SizedBox(width: 8),
-              Text(c.title, style: Theme.of(context).textTheme.titleLarge),
+              Expanded(
+                child: Text(
+                  c.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -109,66 +115,77 @@ class ContractView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          if (!c.isExpired && !c.isOpenEnded)
-            OutlinedButton.icon(
-              onPressed: () async {
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('End contract'),
-                    content: const Text(
-                        'Mark this contract as ended today?'),
-                    actions: [
-                      TextButton(
-                          onPressed: () =>
-                              Navigator.pop(context, false),
-                          child: const Text('Cancel')),
-                      FilledButton(
-                          onPressed: () =>
-                              Navigator.pop(context, true),
-                          child: const Text('End')),
-                    ],
-                  ),
-                );
-                if (ok == true) {
-                  state.updateContract(c.copyWith(endDate: DateTime.now()));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Contract ended')),
+            if (c.isActive && !c.isDeleted)
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('End contract'),
+                      content: const Text('Mark this contract as ended today?'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(false),
+                            child: const Text('Cancel')),
+                        FilledButton(
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: const Text('End')),
+                      ],
+                    ),
                   );
-                }
-              },
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text('End contract'),
-            ),
+                  if (ok == true) {
+                    state.updateContract(c.copyWith(
+                        isActive: false, endDate: DateTime.now()));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Contract ended')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.stop_circle_outlined),
+                label: const Text('End contract'),
+              ),
           const SizedBox(height: 8),
 
-          TextButton.icon(
-            onPressed: () async {
-              final ok = await showDialog<bool>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('Delete contract'),
-                  content: const Text('This cannot be undone.'),
-                  actions: [
-                    TextButton(
-                        onPressed: () =>
-                            Navigator.pop(context, false),
-                        child: const Text('Cancel')),
-                    FilledButton(
-                        onPressed: () =>
-                            Navigator.pop(context, true),
-                        child: const Text('Delete')),
-                  ],
-                ),
-              );
-              if (ok == true) {
-                state.removeContract(c.id);
-                Navigator.pop(context);
-              }
-            },
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Delete'),
-          ),
+            if (!c.isDeleted)
+              TextButton.icon(
+                onPressed: () async {
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Delete contract'),
+                      content: const Text('This cannot be undone.'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(false),
+                            child: const Text('Cancel')),
+                        FilledButton(
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: const Text('Delete')),
+                      ],
+                    ),
+                  );
+                  if (ok == true) {
+                    state.deleteContract(c.id);
+                    final messenger = ScaffoldMessenger.of(context);
+                    Navigator.pop(context);
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: const Text('Deleted Contract moved to Trash'),
+                        duration: const Duration(seconds: 3),
+                        behavior: SnackBarBehavior.floating,
+                        action: SnackBarAction(
+                          label: '✕',
+                          onPressed: () {
+                            messenger.hideCurrentSnackBar();
+                          },
+                        ),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Delete'),
+              ),
         ],
       ),
     );
