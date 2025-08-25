@@ -207,13 +207,15 @@ class _ContractViewState extends State<ContractView> {
                   );
                 }
               },
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete'),
-            ),
-        ],
-      ),
-    );
-  }
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+      },
+      );
+    }
 
   Widget _kv(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
