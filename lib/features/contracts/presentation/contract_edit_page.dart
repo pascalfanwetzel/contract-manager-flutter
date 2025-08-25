@@ -106,14 +106,19 @@ class _ContractEditPageState extends State<ContractEditPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  initialValue: _categoryId,
+                  value: cats.isEmpty ? null : _categoryId,
                   items: cats
                       .map<DropdownMenuItem<String>>(
                         (c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name)),
                       )
                       .toList(),
-                  onChanged: (String? v) => setState(() => _categoryId = v ?? _categoryId),
-                  decoration: const InputDecoration(labelText: 'Category'),
+                  onChanged: cats.isEmpty
+                      ? null
+                      : (String? v) => setState(() => _categoryId = v ?? _categoryId),
+                  decoration: InputDecoration(
+                    labelText: 'Category',
+                    hintText: cats.isEmpty ? 'No categories available' : null,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -123,12 +128,18 @@ class _ContractEditPageState extends State<ContractEditPage> {
                   final ctrl = TextEditingController();
                   final name = await showDialog<String>(
                     context: context,
-                    builder: (_) => AlertDialog(
+                    builder: (dialogContext) => AlertDialog(
                       title: const Text('New category'),
                       content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: 'e.g. Insurance')),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                        FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Create')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(dialogContext, ctrl.text.trim()),
+                          child: const Text('Create'),
+                        ),
                       ],
                     ),
                   );
