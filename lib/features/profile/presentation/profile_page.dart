@@ -30,6 +30,7 @@ class ProfilePage extends StatelessWidget {
           children: [
             Expanded(
               child: TabBarView(
+                physics: const NeverScrollableScrollPhysics(),
                 children: [
                   const UserInfoView(),
                   const NotificationsView(),
@@ -39,15 +40,26 @@ class ProfilePage extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.help_outline),
-              title: const Text('Help & Feedback'),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
-              onTap: () {},
+            SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.help_outline),
+                    title: const Text('Help & Feedback'),
+                    onTap: () {
+                      // TODO: navigate to help/feedback screen
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.logout),
+                    title: const Text('Logout'),
+                    onTap: () {
+                      // TODO: implement sign out
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),

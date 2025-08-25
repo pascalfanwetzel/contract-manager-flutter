@@ -10,21 +10,24 @@ class DataStoragePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 1,
-      child: Column(
-        children: [
-          const TabBar(
-            tabs: [
-              Tab(text: 'Trash / Recently Deleted'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                TrashView(state: state),
+      child: SafeArea(
+        child: Column(
+          children: [
+            const TabBar(
+              tabs: [
+                Tab(text: 'Trash / Recently Deleted'),
               ],
             ),
-          ),
-        ],
+            Expanded(
+              child: TabBarView(
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  TrashView(state: state),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
