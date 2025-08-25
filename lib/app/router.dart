@@ -4,7 +4,6 @@ import '../features/overview/presentation/overview_page.dart';
 import '../features/contracts/presentation/contracts_page.dart';
 import '../features/contracts/presentation/contract_view.dart';
 import '../features/contracts/presentation/contract_edit_page.dart';
-import '../features/reminders/presentation/reminders_page.dart';
 import '../features/profile/presentation/profile_page.dart';
 import '../features/contracts/domain/models.dart';
 import 'routes.dart';
@@ -46,10 +45,6 @@ final router = GoRouter(
               },
             ),
           ],
-        ),
-        GoRoute(
-          path: AppRoutes.reminders,
-          builder: (_, __) => RemindersPage(state: appState),
         ),
         GoRoute(
           path: AppRoutes.profile,

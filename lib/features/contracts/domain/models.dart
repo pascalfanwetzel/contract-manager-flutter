@@ -59,6 +59,8 @@ class Contract {
   final DateTime? startDate;
   final DateTime? endDate;
   final bool isOpenEnded;
+  final bool isActive;
+  final bool isDeleted;
 
   const Contract({
     required this.id,
@@ -73,6 +75,8 @@ class Contract {
     this.startDate,
     this.endDate,
     this.isOpenEnded = false,
+    this.isActive = true,
+    this.isDeleted = false,
   });
 
   bool get isExpired =>
@@ -90,6 +94,8 @@ class Contract {
     DateTime? startDate,
     DateTime? endDate,
     bool? isOpenEnded,
+    bool? isActive,
+    bool? isDeleted,
   }) {
     return Contract(
       id: id,
@@ -104,6 +110,8 @@ class Contract {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       isOpenEnded: isOpenEnded ?? this.isOpenEnded,
+      isActive: isActive ?? this.isActive,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 }
