@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../data/app_state.dart';
+import 'widgets.dart';
 
 class ContractEditPage extends StatefulWidget {
   final AppState state;
@@ -29,6 +30,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
   DateTime? _startDate;
   DateTime? _endDate;
   bool _openEnd = false;
+  bool _editingCategories = false;
 
   @override
   void initState() {
@@ -101,54 +103,46 @@ class _ContractEditPageState extends State<ContractEditPage> {
           TextField(controller: _provider, decoration: const InputDecoration(labelText: 'Provider')),
           const SizedBox(height: 12),
 
-          // Category + "New"
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: cats.isEmpty ? null : _categoryId,
-                  items: cats
-                      .map<DropdownMenuItem<String>>(
-                        (c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name)),
-                      )
-                      .toList(),
-                  onChanged: cats.isEmpty
+              ...cats.map(
+                (c) => CategoryChip(
+                  category: c,
+                  selected: _categoryId == c.id,
+                  editing: _editingCategories,
+                  onSelected: () => setState(() => _categoryId = c.id),
+                  onDelete: c.builtIn
                       ? null
-                      : (String? v) => setState(() => _categoryId = v ?? _categoryId),
-                  decoration: InputDecoration(
-                    labelText: 'Category',
-                    hintText: cats.isEmpty ? 'No categories available' : null,
-                  ),
+                      : () {
+                          widget.state.deleteCategory(c.id);
+                          if (_categoryId == c.id) {
+                            final updated = widget.state.categories;
+                            if (updated.isNotEmpty) {
+                              _categoryId = updated.first.id;
+                            }
+                          }
+                          setState(() {});
+                        },
+                  onLongPress: () =>
+                      setState(() => _editingCategories = !_editingCategories),
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: 'New category',
+              ActionChip(
+                avatar: const Icon(Icons.add),
+                label: const Text('Add category'),
                 onPressed: () async {
-                  final ctrl = TextEditingController();
-                  final name = await showDialog<String>(
-                    context: context,
-                    builder: (dialogContext) => AlertDialog(
-                      title: const Text('New category'),
-                      content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: 'e.g. Insurance')),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(dialogContext),
-                          child: const Text('Cancel'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(dialogContext, ctrl.text.trim()),
-                          child: const Text('Create'),
-                        ),
-                      ],
-                    ),
+                  final name = await _promptForText(
+                    context,
+                    title: 'New category',
+                    hint: 'e.g. Insurance',
                   );
                   if (name != null && name.isNotEmpty) {
                     final id = widget.state.addCategory(name);
                     setState(() => _categoryId = id);
                   }
                 },
-                icon: const Icon(Icons.add),
               ),
             ],
           ),
@@ -295,4 +289,31 @@ class _ContractEditPageState extends State<ContractEditPage> {
 
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<String?> _promptForText(BuildContext context,
+      {required String title, required String hint}) async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          decoration: InputDecoration(hintText: hint),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, ctrl.text.trim()),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
 }
