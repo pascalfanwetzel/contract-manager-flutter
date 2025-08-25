@@ -21,24 +21,26 @@ class ContractsRepoMemory implements ContractsRepo {
   Future<String> add(Contract c) async {
     final id = _uuid.v4();
     _items.add(
-      Contract(
-        id: id,
-        title: c.title,
-        provider: c.provider,
-        categoryId: c.categoryId,
-        costAmount: c.costAmount,
-        costCurrency: c.costCurrency,
-        billingCycle: c.billingCycle,
-        paymentMethod: c.paymentMethod,
-        paymentNote: c.paymentNote,
-        startDate: c.startDate,
-        endDate: c.endDate,
-        isOpenEnded: c.isOpenEnded,
-      ),
-    );
-    _emit();
-    return id;
-  }
+        Contract(
+          id: id,
+          title: c.title,
+          provider: c.provider,
+          categoryId: c.categoryId,
+          costAmount: c.costAmount,
+          costCurrency: c.costCurrency,
+          billingCycle: c.billingCycle,
+          paymentMethod: c.paymentMethod,
+          paymentNote: c.paymentNote,
+          startDate: c.startDate,
+          endDate: c.endDate,
+          isOpenEnded: c.isOpenEnded,
+          isActive: c.isActive,
+          isDeleted: c.isDeleted,
+        ),
+      );
+      _emit();
+      return id;
+    }
 
   @override
   Future<void> update(Contract c) async {
@@ -49,8 +51,12 @@ class ContractsRepoMemory implements ContractsRepo {
 
   @override
   Future<void> delete(String id) async {
-    _items.removeWhere((e) => e.id == id);
-    _emit();
+    final i = _items.indexWhere((e) => e.id == id);
+    if (i != -1) {
+      final c = _items[i];
+      _items[i] = c.copyWith(isActive: false, isDeleted: true);
+      _emit();
+    }
   }
 
   @override
