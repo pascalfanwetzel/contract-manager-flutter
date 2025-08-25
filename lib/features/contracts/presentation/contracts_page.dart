@@ -17,6 +17,7 @@ class ContractsPage extends StatefulWidget {
 class _ContractsPageState extends State<ContractsPage> {
   final _q = TextEditingController();
   String? _selectedCategoryId; // null == All
+  String? _editingCategoryId;
 
   @override
   void dispose() {
@@ -29,7 +30,16 @@ class _ContractsPageState extends State<ContractsPage> {
     return AnimatedBuilder(
       animation: widget.state,
       builder: (context, _) {
-        final categories = widget.state.categories;
+        final categories = [...widget.state.categories];
+        categories.sort((a, b) {
+          if (a.id == 'cat_other') return 1;
+          if (b.id == 'cat_other') return -1;
+          return 0;
+        });
+        if (_selectedCategoryId != null &&
+            !categories.any((c) => c.id == _selectedCategoryId)) {
+          _selectedCategoryId = null;
+        }
         final all = widget.state.contracts;
 
         final query = _q.text.trim().toLowerCase();
@@ -56,10 +66,13 @@ class _ContractsPageState extends State<ContractsPage> {
               ),
             ],
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
+          body: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) => setState(() => _editingCategoryId = null),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
                 Row(
                   children: [
                     Expanded(
@@ -94,20 +107,56 @@ class _ContractsPageState extends State<ContractsPage> {
                       FilterChip(
                         label: const Text('All'),
                         selected: _selectedCategoryId == null,
-                        onSelected: (_) =>
-                            setState(() => _selectedCategoryId = null),
+                        onSelected: (_) => setState(() {
+                          _selectedCategoryId = null;
+                          _editingCategoryId = null;
+                        }),
                       ),
                       const SizedBox(width: 8),
-                      ...categories.map((cat) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              avatar: Icon(cat.icon, size: 18),
-                              label: Text(cat.name),
-                              selected: _selectedCategoryId == cat.id,
-                              onSelected: (_) =>
-                                  setState(() => _selectedCategoryId = cat.id),
-                            ),
-                          )),
+                      ...categories.map(
+                        (cat) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: CategoryChip(
+                            category: cat,
+                            selected: _selectedCategoryId == cat.id,
+                            editing: _editingCategoryId == cat.id,
+                            onSelected: () => setState(() {
+                              _selectedCategoryId = cat.id;
+                              _editingCategoryId = null;
+                            }),
+                            onDelete: cat.builtIn
+                                ? null
+                                : () {
+                                    final moved =
+                                        widget.state.deleteCategory(cat.id);
+                                    if (_selectedCategoryId == cat.id) {
+                                      _selectedCategoryId = null;
+                                    }
+                                    setState(() => _editingCategoryId = null);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '$moved contract${moved == 1 ? '' : 's'} moved to "Other"',
+                                        ),
+                                        duration:
+                                            const Duration(seconds: 3),
+                                        behavior:
+                                            SnackBarBehavior.floating,
+                                        action: SnackBarAction(
+                                          label: '✕',
+                                          onPressed: () {
+                                            ScaffoldMessenger.of(context)
+                                                .hideCurrentSnackBar();
+                                          },
+                                        ),
+                                      ),
+                                    );
+                                  },
+                            onLongPress: () =>
+                                setState(() => _editingCategoryId = cat.id),
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       ActionChip(
                         avatar: const Icon(Icons.add),
@@ -122,6 +171,7 @@ class _ContractsPageState extends State<ContractsPage> {
                             final id = widget.state.addCategory(name.trim());
                             setState(() => _selectedCategoryId = id);
                           }
+                          setState(() => _editingCategoryId = null);
                         },
                       ),
                     ],
@@ -154,7 +204,8 @@ class _ContractsPageState extends State<ContractsPage> {
                           },
                         ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -256,8 +307,25 @@ class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
                     onPressed: cat.builtIn
                         ? null
                         : () {
-                            widget.state.deleteCategory(cat.id);
+                            final moved =
+                                widget.state.deleteCategory(cat.id);
                             setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '$moved contract${moved == 1 ? '' : 's'} moved to "Other"',
+                                ),
+                                duration: const Duration(seconds: 3),
+                                behavior: SnackBarBehavior.floating,
+                                action: SnackBarAction(
+                                  label: '✕',
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context)
+                                        .hideCurrentSnackBar();
+                                  },
+                                ),
+                              ),
+                            );
                           },
                   ),
                 ],

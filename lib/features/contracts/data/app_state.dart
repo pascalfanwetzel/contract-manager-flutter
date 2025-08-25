@@ -64,7 +64,12 @@ class AppState extends ChangeNotifier {
 
   String addCategory(String name) {
     final id = 'cat_${DateTime.now().microsecondsSinceEpoch}';
-    _categories.add(ContractGroup(id: id, name: name, builtIn: false));
+    final otherIndex = _categories.indexWhere((c) => c.id == 'cat_other');
+    final insertAt = otherIndex == -1 ? _categories.length : otherIndex;
+    _categories.insert(
+      insertAt,
+      ContractGroup(id: id, name: name, builtIn: false),
+    );
     notifyListeners();
     return id;
   }
@@ -78,13 +83,14 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void deleteCategory(String id) {
-    if (_categories.any((c) => c.id == id && c.builtIn)) return; // keep defaults
-    // move contracts to "Other" when their group is deleted
-    for (final c in _contracts.where((c) => c.categoryId == id).toList()) {
+  int deleteCategory(String id) {
+    if (_categories.any((c) => c.id == id && c.builtIn)) return 0; // keep defaults
+    final moved = _contracts.where((c) => c.categoryId == id).toList();
+    for (final c in moved) {
       updateContract(c.copyWith(categoryId: 'cat_other'));
     }
     _categories.removeWhere((c) => c.id == id);
     notifyListeners();
+    return moved.length;
   }
 }

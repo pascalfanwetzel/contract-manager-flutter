@@ -30,7 +30,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
   DateTime? _startDate;
   DateTime? _endDate;
   bool _openEnd = false;
-  bool _editingCategories = false;
+  String? _editingCategoryId;
 
   @override
   void initState() {
@@ -86,7 +86,12 @@ class _ContractEditPageState extends State<ContractEditPage> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.editing != null;
-    final cats = widget.state.categories;
+    final cats = [...widget.state.categories];
+    cats.sort((a, b) {
+      if (a.id == 'cat_other') return 1;
+      if (b.id == 'cat_other') return -1;
+      return 0;
+    });
 
     // Ensure selected category is valid
     if (!cats.any((c) => c.id == _categoryId) && cats.isNotEmpty) {
@@ -95,9 +100,12 @@ class _ContractEditPageState extends State<ContractEditPage> {
 
     return Scaffold(
       appBar: AppBar(title: Text(isEditing ? 'Edit contract' : 'Add contract')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _editingCategoryId = null),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
           TextField(controller: _title, decoration: const InputDecoration(labelText: 'Title')),
           const SizedBox(height: 12),
           TextField(controller: _provider, decoration: const InputDecoration(labelText: 'Provider')),
@@ -111,22 +119,40 @@ class _ContractEditPageState extends State<ContractEditPage> {
                 (c) => CategoryChip(
                   category: c,
                   selected: _categoryId == c.id,
-                  editing: _editingCategories,
-                  onSelected: () => setState(() => _categoryId = c.id),
+                  editing: _editingCategoryId == c.id,
+                  onSelected: () => setState(() {
+                    _categoryId = c.id;
+                    _editingCategoryId = null;
+                  }),
                   onDelete: c.builtIn
                       ? null
                       : () {
-                          widget.state.deleteCategory(c.id);
+                          final moved = widget.state.deleteCategory(c.id);
                           if (_categoryId == c.id) {
                             final updated = widget.state.categories;
                             if (updated.isNotEmpty) {
                               _categoryId = updated.first.id;
                             }
                           }
-                          setState(() {});
+                          setState(() => _editingCategoryId = null);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '$moved contract${moved == 1 ? '' : 's'} moved to "Other"',
+                              ),
+                              duration: const Duration(seconds: 3),
+                              behavior: SnackBarBehavior.floating,
+                              action: SnackBarAction(
+                                label: '✕',
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context)
+                                      .hideCurrentSnackBar();
+                                },
+                              ),
+                            ),
+                          );
                         },
-                  onLongPress: () =>
-                      setState(() => _editingCategories = !_editingCategories),
+                  onLongPress: () => setState(() => _editingCategoryId = c.id),
                 ),
               ),
               ActionChip(
@@ -142,6 +168,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
                     final id = widget.state.addCategory(name);
                     setState(() => _categoryId = id);
                   }
+                  setState(() => _editingCategoryId = null);
                 },
               ),
             ],
@@ -284,8 +311,9 @@ class _ContractEditPageState extends State<ContractEditPage> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
