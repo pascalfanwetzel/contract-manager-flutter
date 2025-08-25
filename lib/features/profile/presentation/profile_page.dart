@@ -20,58 +20,50 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Profile'),
-        ),
-        body: Column(
-          children: [
-            const TabBar(
-              isScrollable: true,
-              tabs: [
-                Tab(text: 'User Info'),
-                Tab(text: 'Notifications & Reminders'),
-                Tab(text: 'Privacy'),
-                Tab(text: 'Data & Storage'),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  const UserInfoView(),
-                  const NotificationsView(),
-                  const PrivacyView(),
-                  DataStoragePage(state: state),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            SafeArea(
-              top: false,
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.help_outline),
-                    title: const Text('Help & Feedback'),
-                    onTap: () {
-                      // TODO: navigate to help/feedback screen
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.logout),
-                    title: const Text('Logout'),
-                    onTap: () {
-                      // TODO: implement sign out
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+      ),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const Text('User Info'),
+            onTap: () => _openSection(context, 'User Info', const UserInfoView()),
+          ),
+          ListTile(
+            leading: const Icon(Icons.notifications_outlined),
+            title: const Text('Notifications & Reminders'),
+            onTap: () => _openSection(
+                context, 'Notifications & Reminders', const NotificationsView()),
+          ),
+          ListTile(
+            leading: const Icon(Icons.lock_outline),
+            title: const Text('Privacy'),
+            onTap: () => _openSection(context, 'Privacy', const PrivacyView()),
+          ),
+          ListTile(
+            leading: const Icon(Icons.storage_outlined),
+            title: const Text('Data & Storage'),
+            onTap: () =>
+                _openSection(context, 'Data & Storage', DataStoragePage(state: state)),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('Help & Feedback'),
+            onTap: () {
+              // TODO: navigate to help/feedback screen
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
+            onTap: () {
+              // TODO: implement sign out
+            },
+          ),
+        ],
       ),
     );
   }

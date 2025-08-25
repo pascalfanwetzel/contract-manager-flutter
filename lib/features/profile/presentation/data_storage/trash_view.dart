@@ -76,7 +76,6 @@ class _TrashViewState extends State<TrashView> {
                             if (ok == true) {
                               if (!mounted) return;
                               widget.state.purgeAll();
-                              setState(() {});
                             }
                           },
                     child: const Text('Delete all'),
