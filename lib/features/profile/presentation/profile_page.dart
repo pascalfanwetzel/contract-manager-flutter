@@ -47,12 +47,16 @@ class ProfilePage extends StatelessWidget {
                   ListTile(
                     leading: const Icon(Icons.help_outline),
                     title: const Text('Help & Feedback'),
-                    onTap: () {},
+                    onTap: () {
+                      // TODO: navigate to help/feedback screen
+                    },
                   ),
                   ListTile(
                     leading: const Icon(Icons.logout),
                     title: const Text('Logout'),
-                    onTap: () {},
+                    onTap: () {
+                      // TODO: implement sign out
+                    },
                   ),
                 ],
               ),
