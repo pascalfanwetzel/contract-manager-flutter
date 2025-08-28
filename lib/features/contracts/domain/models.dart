@@ -47,6 +47,7 @@ class Contract {
   final String id;
   final String title;
   final String provider;
+  final String? customerNumber;
   final String categoryId;
 
   final double? costAmount;
@@ -61,11 +62,14 @@ class Contract {
   final bool isOpenEnded;
   final bool isActive;
   final bool isDeleted;
+  final String? notes;
+  final DateTime? deletedAt;
 
   const Contract({
     required this.id,
     required this.title,
     required this.provider,
+    this.customerNumber,
     required this.categoryId,
     this.costAmount,
     this.costCurrency = '€',
@@ -77,6 +81,8 @@ class Contract {
     this.isOpenEnded = false,
     this.isActive = true,
     this.isDeleted = false,
+    this.notes,
+    this.deletedAt,
   });
 
   bool get isExpired =>
@@ -85,6 +91,7 @@ class Contract {
   Contract copyWith({
     String? title,
     String? provider,
+    String? customerNumber,
     String? categoryId,
     double? costAmount,
     String? costCurrency,
@@ -96,11 +103,14 @@ class Contract {
     bool? isOpenEnded,
     bool? isActive,
     bool? isDeleted,
+    String? notes,
+    DateTime? deletedAt,
   }) {
     return Contract(
       id: id,
       title: title ?? this.title,
       provider: provider ?? this.provider,
+      customerNumber: customerNumber ?? this.customerNumber,
       categoryId: categoryId ?? this.categoryId,
       costAmount: costAmount ?? this.costAmount,
       costCurrency: costCurrency ?? this.costCurrency,
@@ -112,6 +122,8 @@ class Contract {
       isOpenEnded: isOpenEnded ?? this.isOpenEnded,
       isActive: isActive ?? this.isActive,
       isDeleted: isDeleted ?? this.isDeleted,
+      notes: notes ?? this.notes,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 }

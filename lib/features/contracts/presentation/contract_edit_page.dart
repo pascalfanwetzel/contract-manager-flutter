@@ -18,6 +18,8 @@ class _ContractEditPageState extends State<ContractEditPage> {
       TextEditingController(text: widget.editing?.title ?? '');
   late final TextEditingController _provider =
       TextEditingController(text: widget.editing?.provider ?? '');
+  late final TextEditingController _customerNo =
+      TextEditingController(text: widget.editing?.customerNumber ?? '');
   late final TextEditingController _amount =
       TextEditingController(text: widget.editing?.costAmount?.toStringAsFixed(2) ?? '');
   final _payNoteCtrl = TextEditingController();
@@ -57,6 +59,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
   void dispose() {
     _title.dispose();
     _provider.dispose();
+    _customerNo.dispose();
     _amount.dispose();
     _payNoteCtrl.dispose();
     super.dispose();
@@ -109,6 +112,8 @@ class _ContractEditPageState extends State<ContractEditPage> {
           TextField(controller: _title, decoration: const InputDecoration(labelText: 'Title')),
           const SizedBox(height: 12),
           TextField(controller: _provider, decoration: const InputDecoration(labelText: 'Provider')),
+          const SizedBox(height: 12),
+          TextField(controller: _customerNo, decoration: const InputDecoration(labelText: 'Customer number (optional)')),
           const SizedBox(height: 12),
 
           Wrap(
@@ -280,6 +285,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
                       id: nowId,
                       title: _title.text.trim(),
                       provider: _provider.text.trim(),
+                      customerNumber: _customerNo.text.trim().isEmpty ? null : _customerNo.text.trim(),
                       categoryId: _categoryId,
                       costAmount: amount,
                       costCurrency: _currency,
@@ -293,6 +299,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
                   : widget.editing!.copyWith(
                       title: _title.text.trim(),
                       provider: _provider.text.trim(),
+                      customerNumber: _customerNo.text.trim().isEmpty ? null : _customerNo.text.trim(),
                       categoryId: _categoryId,
                       costAmount: amount,
                       costCurrency: _currency,

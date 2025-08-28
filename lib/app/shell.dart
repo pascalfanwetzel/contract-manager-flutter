@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/contracts/data/app_state.dart';
@@ -26,27 +27,59 @@ class HomeShell extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(child: child),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: idx,
-        onDestinationSelected: (i) => context.go(paths[i]),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
-              label: 'Overview',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.description_outlined),
-              selectedIcon: Icon(Icons.description),
-              label: 'Contracts',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
+      bottomNavigationBar: AnimatedBuilder(
+        animation: state,
+        builder: (context, _) {
+          return NavigationBar(
+            selectedIndex: idx,
+            onDestinationSelected: (i) => context.go(paths[i]),
+            destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard),
+                label: 'Overview',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.description_outlined),
+                selectedIcon: Icon(Icons.description),
+                label: 'Contracts',
+              ),
+              NavigationDestination(
+                icon: _profileTabIcon(state, selected: false),
+                selectedIcon: _profileTabIcon(state, selected: true),
+                label: 'Profile',
+              ),
+            ],
+          );
+        },
       ),
     );
   }
+}
+
+Widget _profileTabIcon(AppState state, {required bool selected}) {
+  final p = state.profile;
+  final hasPhoto = (p.photoPath != null && p.photoPath!.isNotEmpty && File(p.photoPath!).existsSync());
+  final double radius = 12; // fits nicely in NavigationBar
+  final avatar = CircleAvatar(
+    radius: radius,
+    backgroundColor: selected ? Colors.blueGrey.shade100 : Colors.grey.shade300,
+    backgroundImage: hasPhoto ? FileImage(File(p.photoPath!)) : null,
+    child: hasPhoto
+        ? null
+        : (p.name.trim().isEmpty
+            ? Icon(Icons.person, size: 16, color: Colors.grey.shade800)
+            : Text(
+                p.initials,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade800,
+                ),
+              )),
+  );
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: avatar,
+  );
 }

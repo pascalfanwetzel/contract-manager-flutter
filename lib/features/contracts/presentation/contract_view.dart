@@ -5,6 +5,8 @@ import '../domain/models.dart';
 import '../data/app_state.dart';
 import '../../../app/routes.dart' as r;
 import 'widgets.dart';
+import 'attachments_card.dart';
+import 'notes_card.dart';
 
 class ContractView extends StatefulWidget {
   final AppState state;
@@ -77,6 +79,7 @@ class _ContractViewState extends State<ContractView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _kv('Provider', c.provider),
+                  _kv('Customer number', (c.customerNumber ?? '').isEmpty ? '—' : c.customerNumber!),
                   _kv('Category', cat.name),
                   _kv('Start', formatDate(c.startDate)),
                   _kv('End', c.isOpenEnded ? 'Open end' : formatDate(c.endDate)),
@@ -105,24 +108,12 @@ class _ContractViewState extends State<ContractView> {
           ),
           const SizedBox(height: 12),
 
-          // Attachments (placeholder)
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.picture_as_pdf_outlined),
-              title: const Text('Attachments'),
-              subtitle: const Text('Add PDFs/images via Edit (coming soon)'),
-            ),
-          ),
+          // Attachments
+          AttachmentsCard(state: widget.state, contractId: c.id),
           const SizedBox(height: 12),
 
-          // Notes (placeholder)
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.notes_outlined),
-              title: const Text('Notes'),
-              subtitle: const Text('Add notes to this contract (coming soon)'),
-            ),
-          ),
+          // Notes (expandable editor)
+          NotesCard(state: widget.state, contractId: c.id),
           const SizedBox(height: 24),
 
           if (!c.isDeleted)
