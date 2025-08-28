@@ -107,7 +107,8 @@ class _ContractEditPageState extends State<ContractEditPage> {
         behavior: HitTestBehavior.opaque,
         onTapDown: (_) => setState(() => _editingCategoryId = null),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          // Nudge right padding slightly to avoid rare subpixel overflow on some DPRs
+          padding: const EdgeInsets.fromLTRB(16, 16, 15, 16),
           children: [
           TextField(controller: _title, decoration: const InputDecoration(labelText: 'Title')),
           const SizedBox(height: 12),
@@ -129,34 +130,31 @@ class _ContractEditPageState extends State<ContractEditPage> {
                     _categoryId = c.id;
                     _editingCategoryId = null;
                   }),
-                  onDelete: c.builtIn
-                      ? null
-                      : () {
-                          final moved = widget.state.deleteCategory(c.id);
-                          if (_categoryId == c.id) {
-                            final updated = widget.state.categories;
-                            if (updated.isNotEmpty) {
-                              _categoryId = updated.first.id;
-                            }
-                          }
-                          setState(() => _editingCategoryId = null);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '$moved contract${moved == 1 ? '' : 's'} moved to "Other"',
-                              ),
-                              duration: const Duration(seconds: 3),
-                              behavior: SnackBarBehavior.floating,
-                              action: SnackBarAction(
-                                label: '✕',
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context)
-                                      .hideCurrentSnackBar();
-                                },
-                              ),
-                            ),
-                          );
-                        },
+                  onDelete: () async {
+                    final all = widget.state.categories.where((x) => x.id != c.id).toList();
+                    if (all.isEmpty) {
+                      final newId = widget.state.addCategory('General');
+                      all.add(widget.state.categories.firstWhere((e) => e.id == newId));
+                    }
+                    final fallback = await _pickFallbackCategory(context, all);
+                    if (fallback == null) return;
+                    final moved = widget.state.deleteCategoryWithFallback(c.id, fallback);
+                    if (_categoryId == c.id) {
+                      _categoryId = fallback;
+                    }
+                    setState(() => _editingCategoryId = null);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('$moved contract${moved == 1 ? '' : 's'} moved'),
+                        duration: const Duration(seconds: 3),
+                        behavior: SnackBarBehavior.floating,
+                        action: SnackBarAction(
+                          label: '✕',
+                          onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+                        ),
+                      ),
+                    );
+                  },
                   onLongPress: () => setState(() => _editingCategoryId = c.id),
                 ),
               ),
@@ -347,6 +345,30 @@ class _ContractEditPageState extends State<ContractEditPage> {
                 Navigator.pop(dialogContext, ctrl.text.trim()),
             child: const Text('Create'),
           ),
+        ],
+      ),
+    );
+  }
+
+  Future<String?> _pickFallbackCategory(BuildContext context, List<ContractGroup> choices) async {
+    String selected = choices.first.id;
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Choose fallback category'),
+        content: StatefulBuilder(
+          builder: (ctx, setState) => DropdownButton<String>(
+            value: selected,
+            isExpanded: true,
+            items: choices
+                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                .toList(),
+            onChanged: (v) => setState(() => selected = v ?? selected),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, selected), child: const Text('Move & delete')),
         ],
       ),
     );

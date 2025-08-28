@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
 import '../domain/models.dart';
 import '../domain/attachments.dart';
 import 'attachment_repository.dart';
@@ -43,6 +42,7 @@ class AppState extends ChangeNotifier {
       id: 'c1',
       title: 'Electricity',
       provider: 'GreenPower GmbH',
+      customerNumber: 'EL-492031',
       categoryId: 'cat_home',
       costAmount: 62.90,
       costCurrency: '€',
@@ -55,6 +55,7 @@ class AppState extends ChangeNotifier {
       id: 'c2',
       title: 'Netflix',
       provider: 'Netflix',
+      customerNumber: 'NF-882110',
       categoryId: 'cat_subs',
       costAmount: 12.99,
       costCurrency: '€',
@@ -62,6 +63,84 @@ class AppState extends ChangeNotifier {
       paymentMethod: PaymentMethod.creditCard,
       isOpenEnded: true,
       startDate: DateTime.now().subtract(const Duration(days: 400)),
+    ),
+    Contract(
+      id: 'c3',
+      title: 'Gas',
+      provider: 'CityGas AG',
+      customerNumber: 'GA-771204',
+      categoryId: 'cat_home',
+      costAmount: 48.50,
+      costCurrency: '€',
+      billingCycle: BillingCycle.monthly,
+      paymentMethod: PaymentMethod.sepa,
+      startDate: DateTime.now().subtract(const Duration(days: 200)),
+      endDate: DateTime.now().add(const Duration(days: 165)),
+    ),
+    Contract(
+      id: 'c4',
+      title: 'Rent',
+      provider: 'Muster Immobilien GmbH',
+      customerNumber: 'RE-2023-015',
+      categoryId: 'cat_home',
+      costAmount: 980.00,
+      costCurrency: '€',
+      billingCycle: BillingCycle.monthly,
+      paymentMethod: PaymentMethod.sepa,
+      isOpenEnded: true,
+      startDate: DateTime.now().subtract(const Duration(days: 800)),
+    ),
+    Contract(
+      id: 'c5',
+      title: 'Gym Membership',
+      provider: 'FitClub',
+      customerNumber: 'GYM-55421',
+      categoryId: 'cat_subs',
+      costAmount: 34.90,
+      costCurrency: '€',
+      billingCycle: BillingCycle.monthly,
+      paymentMethod: PaymentMethod.creditCard,
+      isOpenEnded: true,
+      startDate: DateTime.now().subtract(const Duration(days: 250)),
+    ),
+    Contract(
+      id: 'c6',
+      title: 'Car Insurance',
+      provider: 'AutoProtect',
+      customerNumber: 'CAR-INS-90021',
+      categoryId: 'cat_other',
+      costAmount: 520.00,
+      costCurrency: '€',
+      billingCycle: BillingCycle.yearly,
+      paymentMethod: PaymentMethod.bankTransfer,
+      startDate: DateTime.now().subtract(const Duration(days: 500)),
+      endDate: DateTime.now().add(const Duration(days: 200)),
+    ),
+    Contract(
+      id: 'c7',
+      title: 'Internet',
+      provider: 'TeleNet GmbH',
+      customerNumber: 'NET-003942',
+      categoryId: 'cat_home',
+      costAmount: 39.99,
+      costCurrency: '€',
+      billingCycle: BillingCycle.monthly,
+      paymentMethod: PaymentMethod.sepa,
+      isOpenEnded: true,
+      startDate: DateTime.now().subtract(const Duration(days: 600)),
+    ),
+    Contract(
+      id: 'c8',
+      title: 'Mobile Plan',
+      provider: 'MobiCom',
+      customerNumber: 'MB-221177',
+      categoryId: 'cat_subs',
+      costAmount: 24.99,
+      costCurrency: '€',
+      billingCycle: BillingCycle.monthly,
+      paymentMethod: PaymentMethod.creditCard,
+      isOpenEnded: true,
+      startDate: DateTime.now().subtract(const Duration(days: 300)),
     ),
   ];
 
@@ -511,10 +590,19 @@ class AppState extends ChangeNotifier {
   }
 
   int deleteCategory(String id) {
-    if (_categories.any((c) => c.id == id && c.builtIn)) return 0; // keep defaults
+    // Default behavior: move to 'Other' if present
+    final fallback = _categories.any((c) => c.id == 'cat_other')
+        ? 'cat_other'
+        : (_categories.firstWhere((c) => c.id != id, orElse: () => _categories.first).id);
+    return deleteCategoryWithFallback(id, fallback);
+  }
+
+  int deleteCategoryWithFallback(String id, String fallbackCategoryId) {
+    if (!_categories.any((c) => c.id == id)) return 0;
+    if (!_categories.any((c) => c.id == fallbackCategoryId)) return 0;
     final moved = _contracts.where((c) => c.categoryId == id).toList();
     for (final c in moved) {
-      updateContract(c.copyWith(categoryId: 'cat_other'));
+      updateContract(c.copyWith(categoryId: fallbackCategoryId));
     }
     _categories.removeWhere((c) => c.id == id);
     notifyListeners();

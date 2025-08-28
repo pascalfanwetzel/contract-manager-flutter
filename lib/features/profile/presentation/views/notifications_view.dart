@@ -35,7 +35,7 @@ class NotificationsView extends StatelessWidget {
                     enabled: enabled,
                     leading: const Icon(Icons.schedule_outlined),
                     title: const Text('Time of day'),
-                    subtitle: Text('${tod.format(context)}'),
+                    subtitle: Text(tod.format(context)),
                     onTap: !enabled
                         ? null
                         : () async {

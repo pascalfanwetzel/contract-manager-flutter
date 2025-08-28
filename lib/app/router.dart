@@ -23,7 +23,10 @@ final router = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.contracts,
-          builder: (_, __) => ContractsPage(state: appState),
+          builder: (_, state) => ContractsPage(
+            state: appState,
+            initialCategoryId: state.extra is String ? state.extra as String : null,
+          ),
           routes: [
             // /contracts/new  (also used for EDIT via state.extra)
             GoRoute(

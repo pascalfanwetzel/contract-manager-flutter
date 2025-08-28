@@ -17,16 +17,20 @@ class ContractTile extends StatelessWidget {
 
     @override
     Widget build(BuildContext context) {
+      final theme = Theme.of(context);
+      final isLight = theme.brightness == Brightness.light;
+      final subtleTint = isLight ? theme.colorScheme.primary.withOpacity(0.06) : null;
       final status = contract.isActive
           ? (contract.isExpired ? 'Expired' : 'Active')
           : 'Inactive';
       final statusColor = contract.isActive
           ? (contract.isExpired
-              ? Theme.of(context).colorScheme.errorContainer
-              : Theme.of(context).colorScheme.secondaryContainer)
-          : Theme.of(context).colorScheme.errorContainer;
+              ? theme.colorScheme.errorContainer
+              : theme.colorScheme.secondaryContainer)
+          : theme.colorScheme.errorContainer;
 
     return Card(
+      color: subtleTint,
       child: ListTile(
         leading: Icon(category.icon),
         title: Text(contract.title),

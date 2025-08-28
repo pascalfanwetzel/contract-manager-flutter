@@ -18,6 +18,29 @@ class ContractView extends StatefulWidget {
 }
 
 class _ContractViewState extends State<ContractView> {
+  Future<String?> _pickFallbackCategory(BuildContext context, List<ContractGroup> choices) async {
+    String selected = choices.first.id;
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Choose fallback category'),
+        content: StatefulBuilder(
+          builder: (ctx, setState) => DropdownButton<String>(
+            value: selected,
+            isExpanded: true,
+            items: choices
+                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                .toList(),
+            onChanged: (v) => setState(() => selected = v ?? selected),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, selected), child: const Text('Move & delete')),
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -45,6 +68,30 @@ class _ContractViewState extends State<ContractView> {
                     }
                   },
                 ),
+              PopupMenuButton<String>(
+                onSelected: (v) async {
+                  if (v == 'delete_category') {
+                    final catId = c.categoryId;
+                    var others = widget.state.categories.where((x) => x.id != catId).toList();
+                    if (others.isEmpty) {
+                      final id = widget.state.addCategory('General');
+                      others = widget.state.categories.where((x) => x.id != catId).toList();
+                    }
+                    final fallback = await _pickFallbackCategory(context, others);
+                    if (fallback != null) {
+                      final moved = widget.state.deleteCategoryWithFallback(catId, fallback);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Category deleted, $moved contract${moved == 1 ? '' : 's'} moved')),
+                        );
+                      }
+                    }
+                  }
+                },
+                itemBuilder: (ctx) => const [
+                  PopupMenuItem(value: 'delete_category', child: Text('Delete this category…')),
+                ],
+              ),
             ],
           ),
           body: ListView(
@@ -79,7 +126,7 @@ class _ContractViewState extends State<ContractView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _kv('Provider', c.provider),
-                  _kv('Customer number', (c.customerNumber ?? '').isEmpty ? '—' : c.customerNumber!),
+                  _kv('Customer No.', (c.customerNumber ?? '').isEmpty ? '—' : c.customerNumber!),
                   _kv('Category', cat.name),
                   _kv('Start', formatDate(c.startDate)),
                   _kv('End', c.isOpenEnded ? 'Open end' : formatDate(c.endDate)),

@@ -124,7 +124,7 @@ class _UserInfoViewState extends State<UserInfoView> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _locale,
+              initialValue: _locale,
               decoration: const InputDecoration(labelText: 'Locale'),
               items: [
                 DropdownMenuItem(value: 'en-US', child: Text('English (US)')),
@@ -138,7 +138,7 @@ class _UserInfoViewState extends State<UserInfoView> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _currency,
+              initialValue: _currency,
               decoration: const InputDecoration(labelText: 'Currency'),
               items: [
                 DropdownMenuItem(value: 'EUR', child: Text('EUR €')),
@@ -152,7 +152,7 @@ class _UserInfoViewState extends State<UserInfoView> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _country,
+              initialValue: _country,
               decoration: const InputDecoration(labelText: 'Country'),
               items: [
                 DropdownMenuItem(value: 'US', child: Text('United States')),

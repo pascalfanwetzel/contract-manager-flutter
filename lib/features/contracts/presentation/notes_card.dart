@@ -63,30 +63,51 @@ class _NotesCardState extends State<NotesCard> {
                 trailing: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
                 onTap: () => setState(() => _expanded = !_expanded),
               ),
-              if (_expanded) const Divider(height: 1),
-              if (_expanded)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  child: TextField(
-                    controller: _controller,
-                    minLines: 4,
-                    maxLines: null,
-                    decoration: const InputDecoration(
-                      hintText: 'Write notes…',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (txt) => _scheduleSave(txt, c),
+              // Use SizeTransition via AnimatedSwitcher to avoid width compression glitches
+              ClipRect(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) => SizeTransition(
+                    sizeFactor: animation,
+                    axisAlignment: -1.0,
+                    child: child,
                   ),
+                  child: !_expanded
+                      ? const SizedBox.shrink(key: ValueKey('collapsed'))
+                      : Column(
+                          key: const ValueKey('expanded'),
+                          children: [
+                            const Divider(height: 1),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                              child: TextField(
+                                controller: _controller,
+                                minLines: 4,
+                                maxLines: null,
+                                decoration: const InputDecoration(
+                                  hintText: 'Write notes…',
+                                  border: OutlineInputBorder(),
+                                ),
+                                onChanged: (txt) => _scheduleSave(txt, c),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text('$chars characters$editedLabel',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(color: Colors.grey[600])),
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
-              if (_expanded)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Text('$chars characters$editedLabel',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600])),
-                  ),
-                ),
+              ),
             ],
           ),
         );

@@ -8,7 +8,8 @@ import '../../../app/routes.dart' as r;
 
 class ContractsPage extends StatefulWidget {
   final AppState state;
-  const ContractsPage({super.key, required this.state});
+  final String? initialCategoryId;
+  const ContractsPage({super.key, required this.state, this.initialCategoryId});
 
   @override
   State<ContractsPage> createState() => _ContractsPageState();
@@ -18,6 +19,13 @@ class _ContractsPageState extends State<ContractsPage> {
   final _q = TextEditingController();
   String? _selectedCategoryId; // null == All
   String? _editingCategoryId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Preselect category if provided via navigation
+    _selectedCategoryId = widget.initialCategoryId;
+  }
 
   @override
   void dispose() {

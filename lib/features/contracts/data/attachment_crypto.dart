@@ -24,7 +24,7 @@ class AttachmentCryptoService {
   Future<Uint8List> encrypt(Uint8List data) async {
     final key = await _getOrCreateKey();
     final nonce = _algo.newNonce();
-    final secretBox = await _algo.encrypt(data, secretKey: key, nonce: await nonce);
+    final secretBox = await _algo.encrypt(data, secretKey: key, nonce: nonce);
     final out = Uint8List(secretBox.nonce.length + secretBox.cipherText.length + secretBox.mac.bytes.length);
     out.setAll(0, secretBox.nonce);
     out.setAll(secretBox.nonce.length, secretBox.cipherText);
