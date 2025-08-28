@@ -57,18 +57,18 @@ class _TrashViewState extends State<TrashView> {
                         : () async {
                             final ok = await showDialog<bool>(
                               context: context,
-                              builder: (_) => AlertDialog(
+                              builder: (ctx) => AlertDialog(
                                 title: const Text('Empty trash?'),
                                 content: const Text(
                                     'Permanently delete all trashed contracts?'),
                                 actions: [
                                   TextButton(
                                       onPressed: () =>
-                                          Navigator.pop(context, false),
+                                          Navigator.of(ctx).pop(false),
                                       child: const Text('Cancel')),
                                   FilledButton(
                                       onPressed: () =>
-                                          Navigator.pop(context, true),
+                                          Navigator.of(ctx).pop(true),
                                       child: const Text('Delete')),
                                 ],
                               ),
