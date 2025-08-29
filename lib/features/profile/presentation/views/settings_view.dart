@@ -18,29 +18,28 @@ class SettingsView extends StatelessWidget {
             const Text('Appearance', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Card(
-              child: Column(
-                children: [
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.system,
-                    groupValue: theme,
-                    title: const Text('Use system theme'),
-                    onChanged: (v) => state.setThemeMode(v!),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text('Theme'),
+                      const SizedBox(height: 8),
+                      SegmentedButton<ThemeMode>(
+                        segments: const [
+                          ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto_outlined)),
+                          ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_outlined)),
+                          ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined)),
+                        ],
+                        selected: {theme},
+                        onSelectionChanged: (s) => state.setThemeMode(s.first),
+                        showSelectedIcon: false,
+                      ),
+                    ],
                   ),
-                  const Divider(height: 1),
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.light,
-                    groupValue: theme,
-                    title: const Text('Light mode'),
-                    onChanged: (v) => state.setThemeMode(v!),
-                  ),
-                  const Divider(height: 1),
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.dark,
-                    groupValue: theme,
-                    title: const Text('Dark mode'),
-                    onChanged: (v) => state.setThemeMode(v!),
-                  ),
-                ],
+                ),
               ),
             ),
             const SizedBox(height: 16),

@@ -8,6 +8,7 @@ import 'package:pdfx/pdfx.dart';
 
 import '../domain/attachments.dart';
 import 'attachment_crypto.dart';
+import '../../../core/crypto/app_crypto.dart';
 
 class AttachmentRepository {
   static final _uuid = const Uuid();
@@ -41,13 +42,27 @@ class AttachmentRepository {
   Future<File> _thumbFile(String contractId, String attachmentId, int width) async {
     final thumbs = await _thumbsDir(contractId);
     final safeId = attachmentId.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-    return File('${thumbs.path}/$safeId-w$width.png');
+    return File('${thumbs.path}/$safeId-w$width.png.enc');
   }
 
   Future<Uint8List?> loadCachedThumb(String contractId, String attachmentId, int width) async {
     final f = await _thumbFile(contractId, attachmentId, width);
     if (await f.exists()) {
-      return Uint8List.fromList(await f.readAsBytes());
+      try {
+        final sealed = await f.readAsBytes();
+        return await AppCrypto.decryptBytes(Uint8List.fromList(sealed), domain: 'thumbs');
+      } catch (_) {}
+    }
+    // Legacy plaintext thumbnail fallback + migrate
+    final legacy = File(f.path.replaceAll('.png.enc', '.png'));
+    if (await legacy.exists()) {
+      try {
+        final bytes = await legacy.readAsBytes();
+        final sealed = await AppCrypto.encryptBytes(Uint8List.fromList(bytes), domain: 'thumbs');
+        await f.writeAsBytes(sealed, flush: true);
+        try { await legacy.delete(); } catch (_) {}
+        return Uint8List.fromList(bytes);
+      } catch (_) {}
     }
     return null;
   }
@@ -61,7 +76,8 @@ class AttachmentRepository {
     await doc.close();
     final pngBytes = Uint8List.fromList(rendered!.bytes);
     final out = await _thumbFile(contractId, a.id, width);
-    await out.writeAsBytes(pngBytes, flush: true);
+    final sealed = await AppCrypto.encryptBytes(Uint8List.fromList(pngBytes), domain: 'thumbs');
+    await out.writeAsBytes(sealed, flush: true);
     await _evictOldThumbnails(contractId);
     return pngBytes;
   }
@@ -78,23 +94,24 @@ class AttachmentRepository {
     final entries = await dir.list().toList();
     final files = entries.whereType<File>().where((f) => !f.path.split(Platform.pathSeparator).last.startsWith('.')).toList();
 
-    // Encrypted attachments use .json metadata alongside .enc payloads
-    final metas = files.where((f) => f.path.endsWith('.json')).toList();
-    final encrypted = <Attachment>[];
-    for (final meta in metas) {
+    // New encrypted metadata (.meta.enc) reader
+    final metasEnc = files.where((f) => f.path.endsWith('.meta.enc')).toList();
+    final result = <Attachment>[];
+    for (final meta in metasEnc) {
       try {
-        final j = jsonDecode(await meta.readAsString()) as Map<String, dynamic>;
+        final sealed = await meta.readAsBytes();
+        final data = await AppCrypto.decryptBytes(Uint8List.fromList(sealed), domain: 'attachments_meta');
+        final j = jsonDecode(utf8.decode(data)) as Map<String, dynamic>;
         final id = j['id'] as String;
         final name = j['name'] as String;
         final encFile = j['enc'] as String; // relative
         final createdMs = j['createdAt'] as int?;
         final encPath = File('${dir.path}/$encFile');
-        final type = detectAttachmentType(name);
-        encrypted.add(Attachment(
+        result.add(Attachment(
           id: id,
           name: name,
           path: encPath.path,
-          type: type,
+          type: detectAttachmentType(name),
           createdAt: createdMs != null ? DateTime.fromMillisecondsSinceEpoch(createdMs) : (await encPath.stat()).changed,
         ));
       } catch (_) {
@@ -102,7 +119,41 @@ class AttachmentRepository {
       }
     }
 
-    // Legacy plaintext files migration: encrypt and replace with .enc + .json
+    // Legacy metadata (.json): migrate to .meta.enc
+    final metasJson = files.where((f) => f.path.endsWith('.json')).toList();
+    for (final meta in metasJson) {
+      try {
+        final j = jsonDecode(await meta.readAsString()) as Map<String, dynamic>;
+        final id = j['id'] as String;
+        final name = j['name'] as String;
+        final encFile = j['enc'] as String;
+        final createdMs = j['createdAt'] as int?;
+        final sealed = await AppCrypto.encryptBytes(
+          Uint8List.fromList(utf8.encode(jsonEncode({
+            'id': id,
+            'name': name,
+            'enc': encFile,
+            'createdAt': createdMs,
+          }))),
+          domain: 'attachments_meta',
+        );
+        final metaEnc = File('${dir.path}/$id.meta.enc');
+        await metaEnc.writeAsBytes(sealed, flush: true);
+        try { await meta.delete(); } catch (_) {}
+        final encPath = File('${dir.path}/$encFile');
+        result.add(Attachment(
+          id: id,
+          name: name,
+          path: encPath.path,
+          type: detectAttachmentType(name),
+          createdAt: createdMs != null ? DateTime.fromMillisecondsSinceEpoch(createdMs) : (await encPath.stat()).changed,
+        ));
+      } catch (_) {
+        continue;
+      }
+    }
+
+    // Legacy plaintext files migration: encrypt and replace with .enc + .meta.enc
     final legacyFiles = files.where((f) => !f.path.endsWith('.json') && !f.path.endsWith('.enc')).where((f) {
       final t = detectAttachmentType(f.path);
       return t != AttachmentType.other;
@@ -132,7 +183,7 @@ class AttachmentRepository {
       }
     }
 
-    return [...encrypted, ...migrated];
+    return [...result, ...migrated];
   }
 
   Future<Attachment> importFromPath(String contractId, String sourcePath, {String? overrideName}) async {
@@ -150,15 +201,20 @@ class AttachmentRepository {
     final id = _uuid.v4();
     final name = overrideName ?? '$id.$extension';
     final encFile = File('${dir.path}/$id.enc');
-    final sealed = await _crypto.encrypt(Uint8List.fromList(bytes));
+    // Encrypt payload with master-key–derived domain key for cross-device portability
+    final sealed = await AppCrypto.encryptBytes(Uint8List.fromList(bytes), domain: 'attachments_data');
     await encFile.writeAsBytes(sealed, flush: true);
-    final meta = File('${dir.path}/$id.json');
-    await meta.writeAsString(jsonEncode({
-      'id': id,
-      'name': name,
-      'enc': '$id.enc',
-      'createdAt': DateTime.now().millisecondsSinceEpoch,
-    }), flush: true);
+    final metaEnc = File('${dir.path}/$id.meta.enc');
+    final sealedMeta = await AppCrypto.encryptBytes(
+      Uint8List.fromList(utf8.encode(jsonEncode({
+        'id': id,
+        'name': name,
+        'enc': '$id.enc',
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+      }))),
+      domain: 'attachments_meta',
+    );
+    await metaEnc.writeAsBytes(sealedMeta, flush: true);
     return Attachment(
       id: id,
       name: name,
@@ -176,8 +232,8 @@ class AttachmentRepository {
     }
     // delete metadata if exists
     final id = _idFromPathOrAttachment(dir, a);
-    final meta = File('${dir.path}/$id.json');
-    if (await meta.exists()) await meta.delete();
+    final metaEnc = File('${dir.path}/$id.meta.enc');
+    if (await metaEnc.exists()) await metaEnc.delete();
     // delete cached thumbnails
     final thumbs = await _thumbsDir(contractId);
     final safeId = id.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
@@ -185,7 +241,7 @@ class AttachmentRepository {
       await for (final e in thumbs.list()) {
         if (e is File) {
           final name = e.uri.pathSegments.last;
-          if (name.startsWith('$safeId-w') && name.endsWith('.png')) {
+          if (name.startsWith('$safeId-w') && (name.endsWith('.png.enc') || name.endsWith('.png'))) {
             try {
               await e.delete();
             } catch (_) {}
@@ -200,11 +256,16 @@ class AttachmentRepository {
     final sanitized = newName.trim().replaceAll(RegExp(r'[/\\:]'), '_');
     // Update metadata name only; keep encrypted file name stable
     final id = _idFromPathOrAttachment(dir, a);
-    final meta = File('${dir.path}/$id.json');
-    if (await meta.exists()) {
-      final j = jsonDecode(await meta.readAsString()) as Map<String, dynamic>;
-      j['name'] = sanitized;
-      await meta.writeAsString(jsonEncode(j), flush: true);
+    final metaEnc = File('${dir.path}/$id.meta.enc');
+    if (await metaEnc.exists()) {
+      try {
+        final sealed = await metaEnc.readAsBytes();
+        final data = await AppCrypto.decryptBytes(Uint8List.fromList(sealed), domain: 'attachments_meta');
+        final j = jsonDecode(utf8.decode(data)) as Map<String, dynamic>;
+        j['name'] = sanitized;
+        final sealedNew = await AppCrypto.encryptBytes(Uint8List.fromList(utf8.encode(jsonEncode(j))), domain: 'attachments_meta');
+        await metaEnc.writeAsBytes(sealedNew, flush: true);
+      } catch (_) {}
     }
     return a.copyWith(name: sanitized);
   }
@@ -223,7 +284,23 @@ class AttachmentRepository {
     final bytes = await f.readAsBytes();
     // If legacy plaintext (not .enc), return directly
     if (!f.path.endsWith('.enc')) return Uint8List.fromList(bytes);
-    return _crypto.decrypt(Uint8List.fromList(bytes));
+    // Try new scheme (MK-derived). If it fails, fall back to legacy key and migrate in place.
+    try {
+      return await AppCrypto.decryptBytes(Uint8List.fromList(bytes), domain: 'attachments_data');
+    } catch (_) {
+      // Legacy decrypt using device-only key
+      try {
+        final plain = await _crypto.decrypt(Uint8List.fromList(bytes));
+        // Migrate: re-encrypt with MK-derived key and overwrite
+        try {
+          final sealed = await AppCrypto.encryptBytes(Uint8List.fromList(plain), domain: 'attachments_data');
+          await f.writeAsBytes(sealed, flush: true);
+        } catch (_) {}
+        return plain;
+      } catch (_) {
+        rethrow;
+      }
+    }
   }
 
   // Thumbnail cache eviction: keep per-contract cache under size cap
@@ -259,4 +336,3 @@ class _ThumbInfo {
   final int size;
   _ThumbInfo({required this.file, required this.modified, required this.size});
 }
-

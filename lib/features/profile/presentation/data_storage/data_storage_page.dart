@@ -60,6 +60,44 @@ class DataStoragePage extends StatelessWidget {
                 );
               },
             ),
+            // Reset to demo dataset
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Card(
+                child: ListTile(
+                  leading: const Icon(Icons.refresh_outlined),
+                  title: const Text('Reset to demo data'),
+                  subtitle: const Text('Replace your contracts with sample demo items'),
+                  onTap: () async {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: const Text('Reset to demo data?'),
+                        content: const Text('This will replace your current contracts with a sample dataset.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(dialogContext, true),
+                            child: const Text('Reset'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (ok == true) {
+                      await state.resetToDemoData();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Demo data restored')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ),
+            ),
             const TabBar(
               tabs: [
                 Tab(text: 'Trash / Recently Deleted'),

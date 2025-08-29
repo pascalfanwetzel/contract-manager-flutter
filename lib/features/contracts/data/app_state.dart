@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../domain/attachments.dart';
 import 'attachment_repository.dart';
+import 'contracts_store.dart';
 import 'notes_store.dart';
 import '../../profile/data/user_profile.dart';
 import '../../profile/data/profile_store.dart';
@@ -12,25 +13,36 @@ import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
 import 'dart:io';
 import 'package:timezone/timezone.dart' as tz;
+import 'attachment_crypto.dart';
+import '../../../core/crypto/key_service.dart';
+import '../../../core/crypto/passphrase_service.dart';
+import '../../../core/crypto/provisioning_service.dart';
 
 class AppState extends ChangeNotifier {
   final AttachmentRepository _attachmentsRepo = AttachmentRepository();
+  final ContractsStore _contractsStore = ContractsStore();
   final NotesStore _notesStore = NotesStore();
   final ProfileStore _profileStore = ProfileStore();
   final SettingsStore _settingsStore = SettingsStore();
   bool _attachmentsGridPreferred = false;
   ThemeMode _themeMode = ThemeMode.system;
+  // Initial hydration gate
+  bool _isLoading = true;
+  bool get isLoading => _isLoading;
+  // Locked state: encrypted data present but no master key installed
+  bool _isLocked = false;
+  bool get isLocked => _isLocked;
   // Reminders & notifications
   bool _remindersEnabled = true;
   bool _pushEnabled = true;
   bool _inAppBannerEnabled = true;
-  Set<int> _reminderDays = {7, 14, 30};
+  Set<int> _reminderDays = {1, 7, 14, 30};
   TimeOfDay _reminderTime = const TimeOfDay(hour: 9, minute: 0);
   // Privacy controls (defaults)
   bool _blockScreenshots = true;
   bool _allowShare = true;
   bool _allowDownload = true;
-  bool _requireBiometricExport = false;
+  // Biometric settings removed
   final List<ContractGroup> _categories = [
     const ContractGroup(id: 'cat_home', name: 'Home', builtIn: true),
     const ContractGroup(id: 'cat_subs', name: 'Subscriptions', builtIn: true),
@@ -159,9 +171,275 @@ class AppState extends ChangeNotifier {
   );
 
   AppState() {
-    _hydrateNotes();
-    _hydrateProfile();
-    _hydrateSettings();
+    _init();
+  }
+
+  void _init() {
+    _startupUnlockCheck().then((unlocked) {
+      if (!unlocked) {
+        _isLocked = true;
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+      Future.wait([
+        _hydrateContracts(),
+        _hydrateNotes(),
+        _hydrateProfile(),
+        _hydrateSettings(),
+      ]).whenComplete(() {
+        _isLoading = false;
+        notifyListeners();
+      });
+    });
+  }
+
+  Future<bool> _startupUnlockCheck() async {
+    // If MK present, we are unlocked
+    if (await KeyService.instance.hasMasterKey()) return true;
+    // Try auto-unlock using locally provisioned wrapped MK
+    final auto = await ProvisioningService.instance.tryAutoUnlock();
+    if (auto) return true;
+    // If an EMK or encrypted stores are present, we need a passphrase before hydration
+    final dir = await getApplicationDocumentsDirectory();
+    final emk = File('${dir.path}/emk.json');
+    if (await emk.exists()) return false;
+    // Also check for existence of encrypted stores
+    for (final n in ['contracts.enc','notes.enc','settings.enc','profile.enc']) {
+      if (await File('${dir.path}/$n').exists()) return false;
+    }
+    // No encrypted data found; create MK on first use and proceed
+    return true;
+  }
+
+  Future<bool> unlockWithPassphrase(String passphrase) async {
+    final ok = await PassphraseService.unlockAndStore(passphrase);
+    if (!ok) return false;
+    _isLocked = false;
+    _isLoading = true;
+    notifyListeners();
+    await _hydrateContracts();
+    await _hydrateNotes();
+    await _hydrateProfile();
+    await _hydrateSettings();
+    await _rescheduleReminders();
+    _isLoading = false;
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> _hydrateContracts() async {
+    final snap = await _contractsStore.load();
+    if (snap != null) {
+      _categories
+        ..clear()
+        ..addAll(snap.categories);
+      _ensureBuiltinCategories();
+      // Load persisted data; if empty, seed demo for a realistic UI
+      final loaded = List<Contract>.from(snap.contracts);
+      if (loaded.isEmpty) {
+        _contracts
+          ..clear()
+          ..addAll(_demoContracts());
+        await _persistContracts();
+      } else {
+        _contracts
+          ..clear()
+          ..addAll(loaded);
+      }
+      notifyListeners();
+    } else {
+      // First run: seed demo data to make the app feel populated
+      _contracts
+        ..clear()
+        ..addAll(_demoContracts());
+      await _persistContracts();
+      notifyListeners();
+    }
+  }
+
+  // Removed unused _looksLikeDemoSeed helper
+
+  List<Contract> _demoContracts() {
+    final now = DateTime.now();
+    return [
+      Contract(
+        id: 'c1',
+        title: 'Electricity',
+        provider: 'GreenPower GmbH',
+        customerNumber: 'EL-492031',
+        categoryId: 'cat_home',
+        costAmount: 62.90,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.sepa,
+        startDate: now.subtract(const Duration(days: 120)),
+        endDate: now.add(const Duration(days: 240)),
+      ),
+      Contract(
+        id: 'c2',
+        title: 'Netflix',
+        provider: 'Netflix',
+        customerNumber: 'NF-882110',
+        categoryId: 'cat_subs',
+        costAmount: 12.99,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.creditCard,
+        isOpenEnded: true,
+        startDate: now.subtract(const Duration(days: 400)),
+      ),
+      Contract(
+        id: 'c3',
+        title: 'Gas',
+        provider: 'CityGas AG',
+        customerNumber: 'GA-771204',
+        categoryId: 'cat_home',
+        costAmount: 48.50,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.sepa,
+        startDate: now.subtract(const Duration(days: 200)),
+        endDate: now.add(const Duration(days: 165)),
+      ),
+      Contract(
+        id: 'c4',
+        title: 'Rent',
+        provider: 'Muster Immobilien GmbH',
+        customerNumber: 'RE-2023-015',
+        categoryId: 'cat_home',
+        costAmount: 980.00,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.sepa,
+        isOpenEnded: true,
+        startDate: now.subtract(const Duration(days: 800)),
+      ),
+      Contract(
+        id: 'c5',
+        title: 'Gym Membership',
+        provider: 'FitClub',
+        customerNumber: 'GYM-55421',
+        categoryId: 'cat_subs',
+        costAmount: 34.90,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.creditCard,
+        isOpenEnded: true,
+        startDate: now.subtract(const Duration(days: 250)),
+      ),
+      Contract(
+        id: 'c6',
+        title: 'Car Insurance',
+        provider: 'AutoProtect',
+        customerNumber: 'CAR-INS-90021',
+        categoryId: 'cat_other',
+        costAmount: 520.00,
+        billingCycle: BillingCycle.yearly,
+        paymentMethod: PaymentMethod.bankTransfer,
+        startDate: now.subtract(const Duration(days: 500)),
+        endDate: now.add(const Duration(days: 200)),
+      ),
+      Contract(
+        id: 'c7',
+        title: 'Internet',
+        provider: 'TeleNet GmbH',
+        customerNumber: 'NET-003942',
+        categoryId: 'cat_home',
+        costAmount: 39.99,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.sepa,
+        isOpenEnded: true,
+        startDate: now.subtract(const Duration(days: 600)),
+      ),
+      Contract(
+        id: 'c8',
+        title: 'Mobile Plan',
+        provider: 'MobiCom',
+        customerNumber: 'MB-221177',
+        categoryId: 'cat_subs',
+        costAmount: 24.99,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.creditCard,
+        isOpenEnded: true,
+        startDate: now.subtract(const Duration(days: 300)),
+      ),
+      Contract(
+        id: 'c9',
+        title: 'Water',
+        provider: 'CityWater',
+        customerNumber: 'WT-448210',
+        categoryId: 'cat_home',
+        costAmount: 28.40,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.sepa,
+        isOpenEnded: true,
+        startDate: now.subtract(const Duration(days: 500)),
+      ),
+      Contract(
+        id: 'c10',
+        title: 'Spotify',
+        provider: 'Spotify',
+        customerNumber: 'SP-339201',
+        categoryId: 'cat_subs',
+        costAmount: 9.99,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.creditCard,
+        isOpenEnded: true,
+        startDate: now.subtract(const Duration(days: 420)),
+      ),
+      Contract(
+        id: 'c11',
+        title: 'Amazon Prime',
+        provider: 'Amazon',
+        customerNumber: 'AM-778210',
+        categoryId: 'cat_subs',
+        costAmount: 89.00,
+        billingCycle: BillingCycle.yearly,
+        paymentMethod: PaymentMethod.creditCard,
+        startDate: now.subtract(const Duration(days: 700)),
+        endDate: now.add(const Duration(days: 60)),
+      ),
+      Contract(
+        id: 'c12',
+        title: 'Home Insurance',
+        provider: 'SafeHome AG',
+        customerNumber: 'HI-239910',
+        categoryId: 'cat_other',
+        costAmount: 210.00,
+        billingCycle: BillingCycle.yearly,
+        paymentMethod: PaymentMethod.bankTransfer,
+        startDate: now.subtract(const Duration(days: 900)),
+        endDate: now.add(const Duration(days: 330)),
+      ),
+      Contract(
+        id: 'c13',
+        title: 'Health Insurance',
+        provider: 'HealthPlus',
+        customerNumber: 'HL-550033',
+        categoryId: 'cat_other',
+        costAmount: 320.00,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.sepa,
+        isOpenEnded: true,
+        startDate: now.subtract(const Duration(days: 1000)),
+      ),
+      Contract(
+        id: 'c14',
+        title: 'iCloud Storage',
+        provider: 'Apple',
+        customerNumber: 'IC-002211',
+        categoryId: 'cat_subs',
+        costAmount: 2.99,
+        billingCycle: BillingCycle.monthly,
+        paymentMethod: PaymentMethod.creditCard,
+        isOpenEnded: true,
+        startDate: now.subtract(const Duration(days: 365)),
+      ),
+    ];
+  }
+
+  void _ensureBuiltinCategories() {
+    // Make sure built-in categories exist at least once
+    bool has(String id) => _categories.any((c) => c.id == id);
+    if (!has('cat_home')) _categories.insert(0, const ContractGroup(id: 'cat_home', name: 'Home', builtIn: true));
+    if (!has('cat_subs')) _categories.insert(1, const ContractGroup(id: 'cat_subs', name: 'Subscriptions', builtIn: true));
+    if (!has('cat_other')) _categories.add(const ContractGroup(id: 'cat_other', name: 'Other', builtIn: true));
   }
 
   Future<void> _hydrateNotes() async {
@@ -246,7 +524,6 @@ class AppState extends ChangeNotifier {
     final blk = s['blockScreenshots'] as bool?;
     final sh = s['allowShare'] as bool?;
     final dl = s['allowDownload'] as bool?;
-    final bio = s['requireBiometricExport'] as bool?;
     if (tm != null) {
       switch (tm) {
         case 'light':
@@ -275,12 +552,16 @@ class AppState extends ChangeNotifier {
     if (blk != null) _blockScreenshots = blk;
     if (sh != null) _allowShare = sh;
     if (dl != null) _allowDownload = dl;
-    if (bio != null) _requireBiometricExport = bio;
     // One-time in-session migration: stamp missing deletedAt so retention can apply
-    _stampDeletedAtIfMissing();
+    final stamped = _stampDeletedAtIfMissing();
+    if (stamped) {
+      await _persistContracts();
+    }
     notifyListeners();
     // Run an initial sweep after hydration
     _autoEmptyTrashSweep();
+    // Schedule reminders with stable IDs after hydration
+    await _rescheduleReminders();
   }
 
   Future<void> _persistSettings() async {
@@ -294,7 +575,6 @@ class AppState extends ChangeNotifier {
       'blockScreenshots': _blockScreenshots,
       'allowShare': _allowShare,
       'allowDownload': _allowDownload,
-      'requireBiometricExport': _requireBiometricExport,
       'remindersEnabled': _remindersEnabled,
       'pushEnabled': _pushEnabled,
       'inAppBannerEnabled': _inAppBannerEnabled,
@@ -357,12 +637,12 @@ class AppState extends ChangeNotifier {
   bool get blockScreenshots => _blockScreenshots;
   bool get allowShare => _allowShare;
   bool get allowDownload => _allowDownload;
-  bool get requireBiometricExport => _requireBiometricExport;
+  // Biometric controls removed
 
   void setBlockScreenshots(bool v) { _blockScreenshots = v; notifyListeners(); _persistSettings(); }
   void setAllowShare(bool v) { _allowShare = v; notifyListeners(); _persistSettings(); }
   void setAllowDownload(bool v) { _allowDownload = v; notifyListeners(); _persistSettings(); }
-  void setRequireBiometricExport(bool v) { _requireBiometricExport = v; notifyListeners(); _persistSettings(); }
+  // Removed setters for biometric controls
 
   // Export all data into a zip inside app documents
   Future<String> exportAll() async {
@@ -371,7 +651,15 @@ class AppState extends ChangeNotifier {
     final encoder = ZipFileEncoder();
     encoder.create(exportPath);
     try {
-      for (final name in ['settings.json', 'notes.json', 'profile.json']) {
+      // Prefer encrypted stores; fall back to legacy plaintext if present
+      final names = [
+        'contracts.enc', 'contracts.json',
+        'notes.enc', 'notes.json',
+        'settings.enc', 'settings.json',
+        'profile.enc', 'profile.json',
+        'emk.json',
+      ];
+      for (final name in names) {
         final f = File('${dir.path}/$name');
         if (await f.exists()) encoder.addFile(f);
       }
@@ -388,7 +676,7 @@ class AppState extends ChangeNotifier {
   // Wipe local data
   Future<void> wipeLocalData() async {
     final dir = await getApplicationDocumentsDirectory();
-    for (final name in ['settings.json', 'notes.json', 'profile.json']) {
+    for (final name in ['contracts.enc','contracts.json','notes.enc','notes.json','profile.enc','profile.json','settings.enc','settings.json','emk.json']) {
       final f = File('${dir.path}/$name');
       if (await f.exists()) { try { await f.delete(); } catch (_) {} }
     }
@@ -396,18 +684,68 @@ class AppState extends ChangeNotifier {
     if (await attachmentsDir.exists()) { try { await attachmentsDir.delete(recursive: true); } catch (_) {} }
     _attachments.clear();
     _notesEditedAt.clear();
+    _contracts.clear();
     _attachmentsGridPreferred = false;
     _themeMode = ThemeMode.system;
     _remindersEnabled = true;
     _pushEnabled = true;
     _inAppBannerEnabled = true;
-    _reminderDays = {7,14,30};
+    _reminderDays = {1,7,14,30};
     _reminderTime = const TimeOfDay(hour: 9, minute: 0);
     _blockScreenshots = true;
     _allowShare = true;
     _allowDownload = true;
-    _requireBiometricExport = false;
+    // Biometric settings removed
     notifyListeners();
+    // Also wipe crypto keys to render any leftover encrypted blobs unrecoverable
+    try { await AttachmentCryptoService().wipeKey(); } catch (_) {}
+    try { await KeyService.instance.wipeMasterKey(); } catch (_) {}
+  }
+
+  // Reset local contracts to the built-in demo dataset (for development/testing)
+  Future<void> resetToDemoData() async {
+    _attachments.clear();
+    _notesEditedAt.clear();
+    _contracts
+      ..clear()
+      ..addAll(_demoContracts());
+    notifyListeners();
+    await _persistContracts();
+    await _rescheduleReminders();
+  }
+
+  // Import a previously exported zip and replace local data
+  Future<bool> importFromZip(String zipPath, {required String passphrase}) async {
+    final dir = await getApplicationDocumentsDirectory();
+    try {
+      final bytes = await File(zipPath).readAsBytes();
+      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+      // Validate expected contents before destructive actions
+      final names = archive.files.map((f) => f.name).toSet();
+      final hasContracts = names.contains('contracts.enc') || names.contains('contracts.json');
+      final hasEmk = names.contains('emk.json');
+      // Enforce passphrase-protected imports only
+      if (!hasContracts || !hasEmk) {
+        return false; // essential files missing
+      }
+      // Wipe existing data first to avoid stale files
+      await wipeLocalData();
+      extractArchiveToDisk(archive, dir.path);
+      // Require passphrase to unlock before hydration
+      if (passphrase.isEmpty) return false;
+      final ok = await PassphraseService.unlockAndStore(passphrase);
+      if (!ok) return false; // wrong passphrase
+    } catch (e) {
+      return false;
+    }
+    // Rehydrate state from disk
+    await _hydrateContracts();
+    await _hydrateNotes();
+    await _hydrateProfile();
+    await _hydrateSettings();
+    await _rescheduleReminders();
+    notifyListeners();
+    return true;
   }
 
   Future<void> _rescheduleReminders() async {
@@ -480,6 +818,7 @@ class AppState extends ChangeNotifier {
   void addContract(Contract c) {
     _contracts.add(c);
     notifyListeners();
+    _persistContracts();
     _rescheduleReminders();
   }
 
@@ -496,6 +835,7 @@ class AppState extends ChangeNotifier {
         Future.microtask(() => _notesStore.saveNote(c.id, c.notes ?? '', now));
       }
       notifyListeners();
+      _persistContracts();
       // Reschedule if end date or active status changed
       if (prev.endDate != c.endDate || prev.isActive != c.isActive || prev.isDeleted != c.isDeleted) {
         _rescheduleReminders();
@@ -509,6 +849,7 @@ class AppState extends ChangeNotifier {
       final c = _contracts[i];
       _contracts[i] = c.copyWith(isActive: false, isDeleted: true, deletedAt: DateTime.now());
       notifyListeners();
+      _persistContracts();
     }
   }
 
@@ -519,6 +860,7 @@ class AppState extends ChangeNotifier {
     Future.microtask(() => _notesStore.deleteNote(id));
     notifyListeners();
     NotificationService.instance.cancelForContract(id);
+    _persistContracts();
   }
 
   // Auto-empty trash
@@ -554,18 +896,22 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void _stampDeletedAtIfMissing() {
+  bool _stampDeletedAtIfMissing() {
+    var changed = false;
     for (var i = 0; i < _contracts.length; i++) {
       final c = _contracts[i];
       if (c.isDeleted && c.deletedAt == null) {
         _contracts[i] = c.copyWith(deletedAt: DateTime.now());
+        changed = true;
       }
     }
+    return changed;
   }
 
   void purgeAll() {
     _contracts.removeWhere((e) => e.isDeleted);
     notifyListeners();
+    _persistContracts();
   }
 
   String addCategory(String name) {
@@ -577,6 +923,7 @@ class AppState extends ChangeNotifier {
       ContractGroup(id: id, name: name, builtIn: false),
     );
     notifyListeners();
+    _persistContracts();
     return id;
   }
 
@@ -586,6 +933,7 @@ class AppState extends ChangeNotifier {
       final old = _categories[i];
       _categories[i] = ContractGroup(id: old.id, name: newName, builtIn: old.builtIn);
       notifyListeners();
+      _persistContracts();
     }
   }
 
@@ -606,7 +954,12 @@ class AppState extends ChangeNotifier {
     }
     _categories.removeWhere((c) => c.id == id);
     notifyListeners();
+    _persistContracts();
     return moved.length;
+  }
+
+  Future<void> _persistContracts() async {
+    await _contractsStore.save(_categories, _contracts);
   }
 
   // Attachments API

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../domain/models.dart';
 import '../data/app_state.dart';
 import 'widgets.dart';
+import 'category_actions.dart';
 import '../../../app/routes.dart' as r;
 
 class ContractsPage extends StatefulWidget {
@@ -38,6 +39,21 @@ class _ContractsPageState extends State<ContractsPage> {
     return AnimatedBuilder(
       animation: widget.state,
       builder: (context, _) {
+        if (widget.state.isLoading) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Contracts'),
+              actions: [
+                IconButton(
+                  tooltip: 'Manage categories',
+                  icon: const Icon(Icons.tune),
+                  onPressed: null,
+                ),
+              ],
+            ),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
         final categories = [...widget.state.categories];
         categories.sort((a, b) {
           if (a.id == 'cat_other') return 1;
@@ -63,16 +79,6 @@ class _ContractsPageState extends State<ContractsPage> {
         return Scaffold(
           appBar: AppBar(
             title: const Text('Contracts'),
-            actions: [
-              IconButton(
-                tooltip: 'Manage categories',
-                icon: const Icon(Icons.tune),
-                onPressed: () => showDialog(
-                  context: context,
-                  builder: (_) => _ManageCategoriesDialog(state: widget.state),
-                ),
-              ),
-            ],
           ),
           body: GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -96,8 +102,7 @@ class _ContractsPageState extends State<ContractsPage> {
                     const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: () async {
-                        final newC =
-                            await context.push<Contract>(r.AppRoutes.contractNew);
+                        final newC = await context.push<Contract>(r.AppRoutes.contractNew);
                         if (newC != null) widget.state.addContract(newC);
                       },
                       icon: const Icon(Icons.add),
@@ -108,7 +113,7 @@ class _ContractsPageState extends State<ContractsPage> {
                 const SizedBox(height: 12),
 
                 // Category chips + New category
-                SingleChildScrollView(
+                SingleChildScrollView(clipBehavior: Clip.none, 
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
@@ -132,36 +137,28 @@ class _ContractsPageState extends State<ContractsPage> {
                               _selectedCategoryId = cat.id;
                               _editingCategoryId = null;
                             }),
-                            onDelete: cat.builtIn
-                                ? null
-                                : () {
-                                    final moved =
-                                        widget.state.deleteCategory(cat.id);
-                                    if (_selectedCategoryId == cat.id) {
-                                      _selectedCategoryId = null;
-                                    }
-                                    setState(() => _editingCategoryId = null);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '$moved contract${moved == 1 ? '' : 's'} moved to "Other"',
-                                        ),
-                                        duration:
-                                            const Duration(seconds: 3),
-                                        behavior:
-                                            SnackBarBehavior.floating,
-                                        action: SnackBarAction(
-                                          label: '✕',
-                                          onPressed: () {
-                                            ScaffoldMessenger.of(context)
-                                                .hideCurrentSnackBar();
-                                          },
-                                        ),
-                                      ),
-                                    );
-                                  },
-                            onLongPress: () =>
-                                setState(() => _editingCategoryId = cat.id),
+                            onDelete: () async {
+                              await deleteCategoryWithFallbackFlow(
+                                context,
+                                state: widget.state,
+                                category: cat,
+                                onDone: (fallbackId, moved) {
+                                  if (_selectedCategoryId == cat.id) {
+                                    _selectedCategoryId = fallbackId;
+                                  }
+                                  setState(() => _editingCategoryId = null);
+                                },
+                              );
+                            },
+                            onRename: () async {
+                              await renameCategoryFlow(
+                                context,
+                                state: widget.state,
+                                category: cat,
+                              );
+                              setState(() => _editingCategoryId = null);
+                            },
+                            onLongPress: () => setState(() => _editingCategoryId = cat.id),
                           ),
                         ),
                       ),
@@ -170,7 +167,7 @@ class _ContractsPageState extends State<ContractsPage> {
                         avatar: const Icon(Icons.add),
                         label: const Text('New category'),
                         onPressed: () async {
-                          final name = await _promptForText(
+                          final name = await promptForTextDialog(
                             context,
                             title: 'New category',
                             hint: 'e.g. Insurance',
@@ -193,7 +190,7 @@ class _ContractsPageState extends State<ContractsPage> {
                       ? const Center(child: Text('No contracts'))
                       : ListView.separated(
                           itemCount: filtered.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (context, _) =>
                               const SizedBox(height: 8),
                           itemBuilder: (_, i) {
                             final c = filtered[i];
@@ -221,132 +218,6 @@ class _ContractsPageState extends State<ContractsPage> {
     );
   }
 
-  Future<String?> _promptForText(
-    BuildContext context, {
-    required String title,
-    required String hint,
-  }) async {
-    final ctrl = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: ctrl,
-          decoration: InputDecoration(hintText: hint),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, ctrl.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-  }
+  // promptForText moved to category_actions.dart to avoid duplicates
 }
 
-// Manage categories dialog (rename/delete custom groups)
-class _ManageCategoriesDialog extends StatefulWidget {
-  final AppState state;
-  const _ManageCategoriesDialog({required this.state});
-  @override
-  State<_ManageCategoriesDialog> createState() =>
-      _ManageCategoriesDialogState();
-}
-
-class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
-  @override
-  Widget build(BuildContext context) {
-    final cats = widget.state.categories;
-    return AlertDialog(
-      title: const Text('Manage categories'),
-      content: SizedBox(
-        width: 360,
-        child: ListView.separated(
-          shrinkWrap: true,
-          itemCount: cats.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (_, i) {
-            final cat = cats[i];
-            return ListTile(
-              leading: Icon(cat.icon),
-              title: Text(cat.name),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: 'Rename',
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () async {
-                      final ctrl = TextEditingController(text: cat.name);
-                      final newName = await showDialog<String>(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('Rename category'),
-                          content:
-                              TextField(controller: ctrl, autofocus: true),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Cancel')),
-                            FilledButton(
-                                onPressed: () => Navigator.pop(
-                                    context, ctrl.text.trim()),
-                                child: const Text('Save')),
-                          ],
-                        ),
-                      );
-                      if (newName != null && newName.isNotEmpty) {
-                        widget.state.renameCategory(cat.id, newName);
-                        setState(() {});
-                      }
-                    },
-                  ),
-                  IconButton(
-                    tooltip:
-                        cat.builtIn ? 'Cannot delete default' : 'Delete',
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: cat.builtIn
-                        ? null
-                        : () {
-                            final moved =
-                                widget.state.deleteCategory(cat.id);
-                            setState(() {});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '$moved contract${moved == 1 ? '' : 's'} moved to "Other"',
-                                ),
-                                duration: const Duration(seconds: 3),
-                                behavior: SnackBarBehavior.floating,
-                                action: SnackBarAction(
-                                  label: '✕',
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context)
-                                        .hideCurrentSnackBar();
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close')),
-      ],
-    );
-  }
-}

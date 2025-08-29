@@ -18,29 +18,6 @@ class ContractView extends StatefulWidget {
 }
 
 class _ContractViewState extends State<ContractView> {
-  Future<String?> _pickFallbackCategory(BuildContext context, List<ContractGroup> choices) async {
-    String selected = choices.first.id;
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Choose fallback category'),
-        content: StatefulBuilder(
-          builder: (ctx, setState) => DropdownButton<String>(
-            value: selected,
-            isExpanded: true,
-            items: choices
-                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-                .toList(),
-            onChanged: (v) => setState(() => selected = v ?? selected),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, selected), child: const Text('Move & delete')),
-        ],
-      ),
-    );
-  }
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -58,40 +35,16 @@ class _ContractViewState extends State<ContractView> {
                 IconButton(
                   tooltip: 'Edit',
                   icon: const Icon(Icons.edit_outlined),
-                  onPressed: () async {
-                    final updated = await context.push<Contract>(
-                      r.AppRoutes.contractNew,
-                      extra: c, // pass the current contract to edit
-                    );
-                    if (updated != null) {
-                      widget.state.updateContract(updated);
-                    }
-                  },
-                ),
-              PopupMenuButton<String>(
-                onSelected: (v) async {
-                  if (v == 'delete_category') {
-                    final catId = c.categoryId;
-                    var others = widget.state.categories.where((x) => x.id != catId).toList();
-                    if (others.isEmpty) {
-                      final id = widget.state.addCategory('General');
-                      others = widget.state.categories.where((x) => x.id != catId).toList();
-                    }
-                    final fallback = await _pickFallbackCategory(context, others);
-                    if (fallback != null) {
-                      final moved = widget.state.deleteCategoryWithFallback(catId, fallback);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Category deleted, $moved contract${moved == 1 ? '' : 's'} moved')),
-                        );
+                    onPressed: () async {
+                      final updated = await context.push<Contract>(
+                        r.AppRoutes.contractNew,
+                        extra: c,
+                      );
+                      if (updated != null) {
+                        widget.state.updateContract(updated);
                       }
-                    }
-                  }
-                },
-                itemBuilder: (ctx) => const [
-                  PopupMenuItem(value: 'delete_category', child: Text('Delete this category…')),
-                ],
-              ),
+                    },
+                ),
             ],
           ),
           body: ListView(
@@ -186,6 +139,7 @@ class _ContractViewState extends State<ContractView> {
                       if (ok == true) {
                         widget.state.updateContract(
                             c.copyWith(isActive: false, endDate: DateTime.now()));
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Contract ended')),
                         );
@@ -227,6 +181,7 @@ class _ContractViewState extends State<ContractView> {
                 );
                 if (ok == true) {
                   widget.state.deleteContract(c.id);
+                  if (!context.mounted) return;
                   final messenger = ScaffoldMessenger.of(context);
                   Navigator.pop(context);
                   messenger.showSnackBar(

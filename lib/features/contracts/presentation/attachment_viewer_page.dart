@@ -22,13 +22,17 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
   bool _busy = false;
   late Attachment _attachment;
   Uint8List? _data; // decrypted bytes
+  bool _secureActive = false; // whether FLAG_SECURE is currently applied
 
   @override
   void initState() {
     super.initState();
     _attachment = widget.attachment;
     _load();
-    _secureOn();
+    // Apply secure-screen based on current setting
+    _enforceScreenSecure();
+    // Rebuild and re-enforce when privacy settings change
+    widget.state.addListener(_onStateChanged);
   }
 
   static const MethodChannel _secureChannel = MethodChannel('screen_secure');
@@ -39,6 +43,23 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
     try { await _secureChannel.invokeMethod('disable'); } catch (_) {}
   }
 
+  void _onStateChanged() {
+    // Re-apply secure flag and refresh enabled actions when settings change
+    _enforceScreenSecure();
+    if (mounted) setState(() {});
+  }
+
+  void _enforceScreenSecure() {
+    final shouldSecure = widget.state.blockScreenshots;
+    if (shouldSecure && !_secureActive) {
+      _secureOn();
+      _secureActive = true;
+    } else if (!shouldSecure && _secureActive) {
+      _secureOff();
+      _secureActive = false;
+    }
+  }
+
   Future<void> _load() async {
     final b = await widget.state.readAttachmentBytes(widget.contractId, _attachment);
     if (!mounted) return;
@@ -46,11 +67,27 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
   }
 
   Future<void> _share() async {
+    if (!widget.state.allowShare) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sharing is disabled in Privacy settings')),
+        );
+      }
+      return;
+    }
     final data = _data ?? await widget.state.readAttachmentBytes(widget.contractId, _attachment);
     await Share.shareXFiles([XFile.fromData(data, name: _attachment.name)]);
   }
 
   Future<void> _download(BuildContext context) async {
+    if (!widget.state.allowDownload) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Download is disabled in Privacy settings')),
+        );
+      }
+      return;
+    }
     setState(() => _busy = true);
     try {
       // Attempt to copy to a visible Downloads-like directory.
@@ -60,12 +97,12 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
       final dest = File('${targetDir.path}/${_attachment.name}');
       final data = _data ?? await widget.state.readAttachmentBytes(widget.contractId, _attachment);
       await dest.writeAsBytes(data, flush: true);
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Saved to ${targetDir.path}')),
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Save failed: $e')),
       );
@@ -88,7 +125,7 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
     );
     if (ok == true) {
       await widget.state.deleteAttachment(widget.contractId, _attachment);
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.of(context).maybePop();
     }
   }
@@ -116,7 +153,7 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
       setState(() {
         _attachment = updated; // refresh local reference so title/path update
       });
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Renamed')),
       );
@@ -127,23 +164,26 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
 
   @override
   void dispose() {
-    _secureOff();
+    widget.state.removeListener(_onStateChanged);
+    if (_secureActive) _secureOff();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final a = _attachment;
+    final allowShare = widget.state.allowShare;
+    final allowDownload = widget.state.allowDownload;
     final actions = <Widget>[
       IconButton(
         tooltip: 'Share',
         icon: const Icon(Icons.ios_share_outlined),
-        onPressed: _busy ? null : _share,
+        onPressed: (_busy || !allowShare) ? null : _share,
       ),
       IconButton(
         tooltip: 'Download',
         icon: const Icon(Icons.file_download_outlined),
-        onPressed: _busy ? null : () => _download(context),
+        onPressed: (_busy || !allowDownload) ? null : () => _download(context),
       ),
       IconButton(
         tooltip: 'Delete',
@@ -192,14 +232,7 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
   }
 }
 
-class _ImageViewer extends StatelessWidget {
-  final String path;
-  const _ImageViewer({required this.path});
-  @override
-  Widget build(BuildContext context) {
-    return PhotoView(imageProvider: FileImage(File(path)));
-  }
-}
+// Removed unused _ImageViewer widget
 
 class _PdfViewerData extends StatefulWidget {
   final Uint8List bytes;

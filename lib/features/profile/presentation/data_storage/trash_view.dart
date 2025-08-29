@@ -89,7 +89,7 @@ class _TrashViewState extends State<TrashView> {
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
                       itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (context, _) => const SizedBox(height: 8),
                       itemBuilder: (_, i) {
                         final c = filtered[i];
                         final cat =

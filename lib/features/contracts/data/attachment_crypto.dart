@@ -47,5 +47,8 @@ class AttachmentCryptoService {
     final data = await _algo.decrypt(box, secretKey: key);
     return Uint8List.fromList(data);
   }
-}
 
+  Future<void> wipeKey() async {
+    try { await _ks.delete(key: _keyName); } catch (_) {}
+  }
+}

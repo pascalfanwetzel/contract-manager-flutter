@@ -16,6 +16,7 @@ class App extends StatelessWidget {
           theme: _buildTheme(Brightness.light),
           darkTheme: _buildTheme(Brightness.dark),
           routerConfig: router,
+          builder: (context, child) => child ?? const SizedBox.shrink(),
         );
       },
     );
@@ -111,3 +112,5 @@ ThemeData _buildTheme(Brightness brightness) {
     dividerTheme: DividerThemeData(color: scheme.outlineVariant, space: 1, thickness: 1),
   );
 }
+
+// AppLockGate removed: biometric unlock is disabled for now.

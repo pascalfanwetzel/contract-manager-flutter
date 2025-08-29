@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../domain/models.dart';
 
 /// Reusable widgets and formatting helpers for contract UI.
@@ -19,7 +20,7 @@ class ContractTile extends StatelessWidget {
     Widget build(BuildContext context) {
       final theme = Theme.of(context);
       final isLight = theme.brightness == Brightness.light;
-      final subtleTint = isLight ? theme.colorScheme.primary.withOpacity(0.06) : null;
+      final subtleTint = isLight ? theme.colorScheme.primary.withValues(alpha: 0.06) : null;
       final status = contract.isActive
           ? (contract.isExpired ? 'Expired' : 'Active')
           : 'Inactive';
@@ -55,6 +56,7 @@ class CategoryChip extends StatefulWidget {
   final bool editing;
   final VoidCallback onSelected;
   final VoidCallback? onDelete;
+  final VoidCallback? onRename;
   final VoidCallback? onLongPress;
 
   const CategoryChip({
@@ -64,6 +66,7 @@ class CategoryChip extends StatefulWidget {
     required this.editing,
     required this.onSelected,
     this.onDelete,
+    this.onRename,
     this.onLongPress,
   });
 
@@ -79,8 +82,8 @@ class _CategoryChipState extends State<CategoryChip>
   void initState() {
     super.initState();
     _controller =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
-    if (widget.editing) _controller.repeat(reverse: true);
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 2200));
+    if (widget.editing) _controller.repeat();
   }
 
   @override
@@ -88,7 +91,7 @@ class _CategoryChipState extends State<CategoryChip>
     super.didUpdateWidget(oldWidget);
     if (widget.editing != oldWidget.editing) {
       if (widget.editing) {
-        _controller.repeat(reverse: true);
+        _controller.repeat();
       } else {
         _controller.stop();
         _controller.reset();
@@ -104,10 +107,17 @@ class _CategoryChipState extends State<CategoryChip>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
+    final selectedColor = isLight
+        ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.9)
+        : theme.colorScheme.secondaryContainer;
     final chip = FilterChip(
       avatar: Icon(widget.category.icon, size: 18),
       label: Text(widget.category.name),
       selected: widget.selected,
+      showCheckmark: false,
+      selectedColor: selectedColor,
       onSelected: (_) => widget.onSelected(),
     );
 
@@ -116,13 +126,29 @@ class _CategoryChipState extends State<CategoryChip>
       child: AnimatedBuilder(
         animation: _controller,
         builder: (_, child) => Transform.rotate(
-          angle: widget.editing ? (_controller.value * 0.1 - 0.05) : 0,
+          angle: widget.editing ? _jiggleAngle(_controller.value) : 0,
           child: child,
         ),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             chip,
+            if (widget.editing && widget.onRename != null)
+              Positioned(
+                left: -4,
+                top: -4,
+                child: InkWell(
+                  onTap: widget.onRename,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(2),
+                    child: const Icon(Icons.edit, size: 16, color: Colors.white),
+                  ),
+                ),
+              ),
             if (widget.editing && widget.onDelete != null)
               Positioned(
                 right: -4,
@@ -131,7 +157,7 @@ class _CategoryChipState extends State<CategoryChip>
                   onTap: widget.onDelete,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.error,
+                      color: theme.colorScheme.error,
                       shape: BoxShape.circle,
                     ),
                     padding: const EdgeInsets.all(2),
@@ -143,6 +169,15 @@ class _CategoryChipState extends State<CategoryChip>
         ),
       ),
     );
+  }
+
+  double _jiggleAngle(double t) {
+    // t in [0,1), make a short pulse at the start, then rest
+    if (t < 0.2) {
+      final phase = (t / 0.2) * (2 * math.pi);
+      return math.sin(phase) * 0.015; // ~0.86°
+    }
+    return 0.0;
   }
 }
 

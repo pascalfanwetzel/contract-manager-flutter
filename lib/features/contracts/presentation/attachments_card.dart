@@ -27,6 +27,8 @@ class _AttachmentsCardState extends State<AttachmentsCard> {
   }
 
   Future<void> _addAttachment(BuildContext context) async {
+    // Capture devicePixelRatio before async gaps to avoid context-after-await lint
+    final dpr = MediaQuery.of(context).devicePixelRatio;
     final choice = await showModalBottomSheet<_AddChoice>(
       context: context,
       showDragHandle: true,
@@ -60,7 +62,6 @@ class _AttachmentsCardState extends State<AttachmentsCard> {
           final path = res?.files.single.path;
           if (path != null) {
             await widget.state.addAttachmentFromPath(widget.contractId, path);
-            final dpr = MediaQuery.of(context).devicePixelRatio;
             // Warm thumbnails in background
             widget.state.warmThumbnails(widget.contractId, devicePixelRatio: dpr);
           }
@@ -70,7 +71,6 @@ class _AttachmentsCardState extends State<AttachmentsCard> {
           final path = res?.files.single.path;
           if (path != null) {
             await widget.state.addAttachmentFromPath(widget.contractId, path);
-            final dpr = MediaQuery.of(context).devicePixelRatio;
             widget.state.warmThumbnails(widget.contractId, devicePixelRatio: dpr);
           }
           break;
@@ -80,7 +80,6 @@ class _AttachmentsCardState extends State<AttachmentsCard> {
           if (shot != null) {
             final bytes = await shot.readAsBytes();
             await widget.state.addAttachmentFromBytes(widget.contractId, bytes, extension: 'jpg');
-            final dpr = MediaQuery.of(context).devicePixelRatio;
             widget.state.warmThumbnails(widget.contractId, devicePixelRatio: dpr);
           }
           break;
@@ -94,147 +93,144 @@ class _AttachmentsCardState extends State<AttachmentsCard> {
   Widget build(BuildContext context) {
     final items = widget.state.attachmentsFor(widget.contractId);
     return Card(
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeInOut,
-        child: Column(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.attach_file_outlined),
-              title: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Attachments',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (_loading)
-                    const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.attach_file_outlined),
+            title: const Text('Attachments'),
+            subtitle: Text(items.isEmpty ? 'No attachments' : '${items.length} attached'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_loading)
+                  const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                IconButton(
+                  tooltip: 'Add',
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: _loading ? null : () => _addAttachment(context),
+                ),
+                if (items.isNotEmpty)
                   IconButton(
-                    tooltip: 'Add',
-                    icon: const Icon(Icons.add_circle_outline),
-                    onPressed: _loading ? null : () => _addAttachment(context),
+                    tooltip: widget.state.attachmentsGridPreferred ? 'List view' : 'Grid view',
+                    icon: Icon(widget.state.attachmentsGridPreferred ? Icons.view_list_outlined : Icons.grid_view),
+                    onPressed: () => widget.state
+                        .setAttachmentsGridPreferred(!widget.state.attachmentsGridPreferred),
                   ),
-                  if (items.isNotEmpty)
-                    IconButton(
-                      tooltip: widget.state.attachmentsGridPreferred ? 'List view' : 'Grid view',
-                      icon: Icon(widget.state.attachmentsGridPreferred ? Icons.view_list_outlined : Icons.grid_view),
-                      onPressed: () => widget.state
-                          .setAttachmentsGridPreferred(!widget.state.attachmentsGridPreferred),
-                    ),
-                  if (items.isNotEmpty)
-                    IconButton(
-                      tooltip: _expanded ? 'Collapse' : 'Expand',
-                      icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
-                      onPressed: () => setState(() => _expanded = !_expanded),
-                    ),
-                ],
-              ),
-              subtitle: Text(items.isEmpty ? 'No attachments' : '${items.length} attached'),
-              onTap: items.isEmpty ? null : () => setState(() => _expanded = !_expanded),
+                if (items.isNotEmpty)
+                  IconButton(
+                    tooltip: _expanded ? 'Collapse' : 'Expand',
+                    icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+                    onPressed: () => setState(() => _expanded = !_expanded),
+                  ),
+              ],
             ),
-            AnimatedCrossFade(
-              crossFadeState: _expanded && items.isNotEmpty
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
+            onTap: items.isEmpty ? null : () => setState(() => _expanded = !_expanded),
+          ),
+          // Smooth height-only transition to avoid width compression glitches
+          ClipRect(
+            child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
-              firstCurve: Curves.easeOut,
-              secondCurve: Curves.easeIn,
-              sizeCurve: Curves.easeInOut,
-              firstChild: const SizedBox.shrink(),
-              secondChild: Column(
-                children: [
-                  const Divider(height: 1),
-                  widget.state.attachmentsGridPreferred
-                      ? GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                          itemCount: items.length,
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 0.85,
-                          ),
-                          itemBuilder: (context, i) {
-                            final a = items[i];
-                            return InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: () {
-                                Navigator.of(context, rootNavigator: true).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => AttachmentViewerPage(
-                                      attachment: a,
-                                      contractId: widget.contractId,
-                                      state: widget.state,
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: _AttachmentThumb(
-                                        attachment: a,
-                                        size: double.infinity,
-                                        state: widget.state,
-                                        contractId: widget.contractId,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    a.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        )
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.only(bottom: 8),
-                          itemCount: items.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (context, i) {
-                            final a = items[i];
-                            return ListTile(
-                              leading: _AttachmentThumb(
-                                attachment: a,
-                                size: 40,
-                                state: widget.state,
-                                contractId: widget.contractId,
-                              ),
-                              title: Text(a.name),
-                              onTap: () {
-                                Navigator.of(context, rootNavigator: true).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => AttachmentViewerPage(
-                                      attachment: a,
-                                      contractId: widget.contractId,
-                                      state: widget.state,
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                ],
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) => SizeTransition(
+                sizeFactor: animation,
+                axisAlignment: -1.0,
+                child: child,
               ),
+              child: (!_expanded || items.isEmpty)
+                  ? const SizedBox.shrink(key: ValueKey('att_collapsed'))
+                  : Column(
+                      key: const ValueKey('att_expanded'),
+                      children: [
+                        const Divider(height: 1),
+                        widget.state.attachmentsGridPreferred
+                            ? GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                                itemCount: items.length,
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  mainAxisSpacing: 12,
+                                  crossAxisSpacing: 12,
+                                  childAspectRatio: 0.85,
+                                ),
+                                itemBuilder: (context, i) {
+                                  final a = items[i];
+                                  return InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      Navigator.of(context, rootNavigator: true).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => AttachmentViewerPage(
+                                            attachment: a,
+                                            contractId: widget.contractId,
+                                            state: widget.state,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: _AttachmentThumb(
+                                              attachment: a,
+                                              size: double.infinity,
+                                              state: widget.state,
+                                              contractId: widget.contractId,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          a.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              )
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                padding: const EdgeInsets.only(bottom: 8),
+                                itemCount: items.length,
+                                separatorBuilder: (context, _) => const Divider(height: 1),
+                                itemBuilder: (context, i) {
+                                  final a = items[i];
+                                  return ListTile(
+                                    leading: _AttachmentThumb(
+                                      attachment: a,
+                                      size: 40,
+                                      state: widget.state,
+                                      contractId: widget.contractId,
+                                    ),
+                                    title: Text(a.name),
+                                    onTap: () {
+                                      Navigator.of(context, rootNavigator: true).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => AttachmentViewerPage(
+                                            attachment: a,
+                                            contractId: widget.contractId,
+                                            state: widget.state,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                      ],
+                    ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

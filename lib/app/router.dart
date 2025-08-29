@@ -19,7 +19,7 @@ final router = GoRouter(
       routes: [
         GoRoute(
           path: AppRoutes.overview,
-          builder: (_, __) => OverviewPage(state: appState),
+          builder: (context, state) => OverviewPage(state: appState),
         ),
         GoRoute(
           path: AppRoutes.contracts,
@@ -54,7 +54,7 @@ final router = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.profile,
-          builder: (_, __) => ProfilePage(state: appState),
+          builder: (context, state) => ProfilePage(state: appState),
         ),
       ],
     ),

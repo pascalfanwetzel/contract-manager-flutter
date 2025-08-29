@@ -117,24 +117,6 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
           ),
         ),
 
-        const SizedBox(height: 12),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined),
-                title: const Text('Privacy Policy (Datenschutzerklärung)'),
-                onTap: () => _openDocs(context, 'Datenschutzerklärung', 'Hier steht Ihre Datenschutzerklärung …'),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('Impressum'),
-                onTap: () => _openDocs(context, 'Impressum', 'Hier steht Ihr Impressum …'),
-              ),
-            ],
-          ),
-        ),
 
         const SizedBox(height: 12),
         Card(
@@ -171,6 +153,8 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
 
   Future<void> _exportDiagnostics(BuildContext context) async {
     try {
+      // Capture context-derived values before async gaps
+      final reminderTimeStr = widget.state.reminderTime.format(context);
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/diagnostics_${DateTime.now().millisecondsSinceEpoch}.txt');
       final info = _info;
@@ -179,7 +163,7 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
         ..writeln('Generated: ${DateTime.now().toIso8601String()}')
         ..writeln('Version: ${info?.version ?? '-'} (${info?.buildNumber ?? '-'})')
         ..writeln('Theme: ${widget.state.themeMode}')
-        ..writeln('Reminders: enabled=${widget.state.remindersEnabled}, days=${widget.state.reminderDays.toList()..sort()}, time=${widget.state.reminderTime.format(context)}')
+        ..writeln('Reminders: enabled=${widget.state.remindersEnabled}, days=${widget.state.reminderDays.toList()..sort()}, time=$reminderTimeStr')
         ..writeln('Attachments grid preferred: ${widget.state.attachmentsGridPreferred}')
         ..writeln('AllowShare=${widget.state.allowShare}, AllowDownload=${widget.state.allowDownload}, BlockScreenshots=${widget.state.blockScreenshots}')
         ..writeln('Auto-empty trash: enabled=${widget.state.autoEmptyTrashEnabled}, days=${widget.state.autoEmptyTrashDays}');

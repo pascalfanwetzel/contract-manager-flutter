@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../contracts/data/app_state.dart';
-import '../../data/user_profile.dart';
 
 class UserInfoView extends StatefulWidget {
   final AppState state;
@@ -14,7 +13,8 @@ class UserInfoView extends StatefulWidget {
 }
 
 class _UserInfoViewState extends State<UserInfoView> {
-  final _name = TextEditingController();
+  final _firstName = TextEditingController();
+  final _lastName = TextEditingController();
   final _email = TextEditingController();
   final _phone = TextEditingController();
   String? _locale;
@@ -31,7 +31,8 @@ class _UserInfoViewState extends State<UserInfoView> {
   @override
   void dispose() {
     _debounce?.cancel();
-    _name.dispose();
+    _firstName.dispose();
+    _lastName.dispose();
     _email.dispose();
     _phone.dispose();
     super.dispose();
@@ -39,7 +40,9 @@ class _UserInfoViewState extends State<UserInfoView> {
 
   void _syncFromState() {
     final p = widget.state.profile;
-    _name.text = p.name;
+    final parts = p.name.trim().split(RegExp(r"\s+")).where((e) => e.isNotEmpty).toList();
+    _firstName.text = parts.isNotEmpty ? parts.first : '';
+    _lastName.text = parts.length > 1 ? parts.sublist(1).join(' ') : '';
     _email.text = p.email;
     _phone.text = p.phone ?? '';
     _locale = p.locale;
@@ -51,7 +54,10 @@ class _UserInfoViewState extends State<UserInfoView> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       final p = widget.state.profile.copyWith(
-        name: _name.text.trim(),
+        name: [
+          _firstName.text.trim(),
+          _lastName.text.trim(),
+        ].where((s) => s.isNotEmpty).join(' '),
         email: _email.text.trim(),
         phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         locale: _locale,
@@ -66,10 +72,14 @@ class _UserInfoViewState extends State<UserInfoView> {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: widget.state,
-      builder: (_, __) {
+      builder: (context, _) {
         final p = widget.state.profile;
         // keep form in sync if state changed elsewhere
-        if (_name.text != p.name || _email.text != p.email || _phone.text != (p.phone ?? '')) {
+        final combined = [
+          _firstName.text.trim(),
+          _lastName.text.trim(),
+        ].where((s) => s.isNotEmpty).join(' ');
+        if (combined != p.name || _email.text != p.email || _phone.text != (p.phone ?? '')) {
           _syncFromState();
         }
         final avatar = p.photoPath != null && p.photoPath!.isNotEmpty ? File(p.photoPath!) : null;
@@ -103,10 +113,24 @@ class _UserInfoViewState extends State<UserInfoView> {
               ),
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Full name'),
-              onChanged: (_) => _scheduleSave(),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _firstName,
+                    decoration: const InputDecoration(labelText: 'First name'),
+                    onChanged: (_) => _scheduleSave(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _lastName,
+                    decoration: const InputDecoration(labelText: 'Last name'),
+                    onChanged: (_) => _scheduleSave(),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             TextField(

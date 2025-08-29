@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../data/app_state.dart';
 import 'widgets.dart';
+import 'category_actions.dart';
 
 class ContractEditPage extends StatefulWidget {
   final AppState state;
@@ -67,11 +68,15 @@ class _ContractEditPageState extends State<ContractEditPage> {
 
   Future<void> _pickDate(bool isStart) async {
     final now = DateTime.now();
-    final initial = isStart ? (_startDate ?? now) : (_endDate ?? now.add(const Duration(days: 180)));
+    final oneYearFromStart = _startDate != null ? _startDate!.add(const Duration(days: 365)) : now.add(const Duration(days: 365));
+    final initial = isStart
+        ? (_startDate ?? now)
+        : (_endDate ?? oneYearFromStart);
+    final first = isStart ? DateTime(2000) : (_startDate ?? DateTime(2000));
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: DateTime(2000),
+      firstDate: first,
       lastDate: DateTime(2100),
     );
     if (picked != null) {
@@ -131,29 +136,25 @@ class _ContractEditPageState extends State<ContractEditPage> {
                     _editingCategoryId = null;
                   }),
                   onDelete: () async {
-                    final all = widget.state.categories.where((x) => x.id != c.id).toList();
-                    if (all.isEmpty) {
-                      final newId = widget.state.addCategory('General');
-                      all.add(widget.state.categories.firstWhere((e) => e.id == newId));
-                    }
-                    final fallback = await _pickFallbackCategory(context, all);
-                    if (fallback == null) return;
-                    final moved = widget.state.deleteCategoryWithFallback(c.id, fallback);
-                    if (_categoryId == c.id) {
-                      _categoryId = fallback;
-                    }
-                    setState(() => _editingCategoryId = null);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('$moved contract${moved == 1 ? '' : 's'} moved'),
-                        duration: const Duration(seconds: 3),
-                        behavior: SnackBarBehavior.floating,
-                        action: SnackBarAction(
-                          label: '✕',
-                          onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
-                        ),
-                      ),
+                    await deleteCategoryWithFallbackFlow(
+                      context,
+                      state: widget.state,
+                      category: c,
+                      onDone: (fallbackId, moved) {
+                        if (_categoryId == c.id) {
+                          _categoryId = fallbackId;
+                        }
+                        setState(() => _editingCategoryId = null);
+                      },
                     );
+                  },
+                  onRename: () async {
+                    await renameCategoryFlow(
+                      context,
+                      state: widget.state,
+                      category: c,
+                    );
+                    setState(() => _editingCategoryId = null);
                   },
                   onLongPress: () => setState(() => _editingCategoryId = c.id),
                 ),
@@ -162,7 +163,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
                 avatar: const Icon(Icons.add),
                 label: const Text('Add category'),
                 onPressed: () async {
-                  final name = await _promptForText(
+                  final name = await promptForTextDialog(
                     context,
                     title: 'New category',
                     hint: 'e.g. Insurance',
@@ -252,7 +253,7 @@ class _ContractEditPageState extends State<ContractEditPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _openEnd ? null : () => _pickDate(false),
+                  onPressed: (_openEnd || _startDate == null) ? null : () => _pickDate(false),
                   icon: const Icon(Icons.event),
                   label: Text('End: ${_openEnd ? 'Open end' : (_endDate != null ? _fmt(_endDate!) : '—')}'),
                 ),
@@ -323,54 +324,6 @@ class _ContractEditPageState extends State<ContractEditPage> {
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  Future<String?> _promptForText(BuildContext context,
-      {required String title, required String hint}) async {
-    final ctrl = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: ctrl,
-          decoration: InputDecoration(hintText: hint),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, ctrl.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<String?> _pickFallbackCategory(BuildContext context, List<ContractGroup> choices) async {
-    String selected = choices.first.id;
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Choose fallback category'),
-        content: StatefulBuilder(
-          builder: (ctx, setState) => DropdownButton<String>(
-            value: selected,
-            isExpanded: true,
-            items: choices
-                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-                .toList(),
-            onChanged: (v) => setState(() => selected = v ?? selected),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, selected), child: const Text('Move & delete')),
-        ],
-      ),
-    );
-  }
+  // Category prompt and fallback picker are centralized in category_actions.dart
 }
+

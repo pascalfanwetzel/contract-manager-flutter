@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:path_provider/path_provider.dart';
 
 import '../../features/contracts/domain/models.dart';
 
@@ -41,6 +42,13 @@ class NotificationService {
     } catch (_) {
       // Fallback to UTC
       tz.setLocalLocation(tz.getLocation('UTC'));
+    }
+
+    // One-time migration: cancel all previously scheduled notifications that
+    // may have been created with unstable IDs (String.hashCode). After this
+    // is done once, AppState hydration will reschedule using stable IDs.
+    if (await _ensureMigrationMarker()) {
+      try { await _plugin.cancelAll(); } catch (_) {}
     }
 
     _initialized = true;
@@ -84,5 +92,34 @@ class NotificationService {
     }
   }
 
-  int _idFor(String contractId, int days) => (contractId.hashCode ^ days.hashCode) & 0x7fffffff;
+  // Use a deterministic, stable 32-bit FNV-1a hash to derive notification IDs
+  // from (contractId|days). This avoids String.hashCode instability across runs.
+  int _idFor(String contractId, int days) {
+    final s = '$contractId|$days';
+    const int fnvPrime = 0x01000193; // 16777619
+    const int offset = 0x811C9DC5;  // 2166136261
+    var hash = offset;
+    for (var i = 0; i < s.length; i++) {
+      hash ^= s.codeUnitAt(i);
+      // Keep as 32-bit unsigned
+      hash = (hash * fnvPrime) & 0xFFFFFFFF;
+    }
+    // Make positive 31-bit int for Android notification IDs
+    return hash & 0x7FFFFFFF;
+  }
+
+  // Creates a small marker file to ensure the cancelAll migration runs once.
+  // Returns true if migration should run (marker newly created), false if already done.
+  Future<bool> _ensureMigrationMarker() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final f = File('${dir.path}/notif_id_migrated_v1');
+      if (await f.exists()) return false;
+      await f.writeAsString('ok', flush: true);
+      return true;
+    } catch (_) {
+      // If storage fails, fall back to running migration this launch only.
+      return true;
+    }
+  }
 }
