@@ -82,7 +82,7 @@ class _CategoryChipState extends State<CategoryChip>
   void initState() {
     super.initState();
     _controller =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 2200));
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
     if (widget.editing) _controller.repeat();
   }
 
@@ -144,8 +144,8 @@ class _CategoryChipState extends State<CategoryChip>
                       color: theme.colorScheme.primary,
                       shape: BoxShape.circle,
                     ),
-                    padding: const EdgeInsets.all(2),
-                    child: const Icon(Icons.edit, size: 16, color: Colors.white),
+                    padding: const EdgeInsets.all(4),
+                    child: const Icon(Icons.edit, size: 20, color: Colors.white),
                   ),
                 ),
               ),
@@ -160,8 +160,8 @@ class _CategoryChipState extends State<CategoryChip>
                       color: theme.colorScheme.error,
                       shape: BoxShape.circle,
                     ),
-                    padding: const EdgeInsets.all(2),
-                    child: const Icon(Icons.close, size: 16, color: Colors.white),
+                    padding: const EdgeInsets.all(4),
+                    child: const Icon(Icons.close, size: 20, color: Colors.white),
                   ),
                 ),
               ),

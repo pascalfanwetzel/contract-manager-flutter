@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../../core/fs/app_dirs.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:flutter/services.dart';
 
@@ -76,7 +77,13 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
       return;
     }
     final data = _data ?? await widget.state.readAttachmentBytes(widget.contractId, _attachment);
-    await Share.shareXFiles([XFile.fromData(data, name: _attachment.name)]);
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile.fromData(data, name: _attachment.name)],
+        subject: _attachment.name,
+        text: 'Shared from Contract Manager',
+      ),
+    );
   }
 
   Future<void> _download(BuildContext context) async {
@@ -90,17 +97,28 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
     }
     setState(() => _busy = true);
     try {
-      // Attempt to copy to a visible Downloads-like directory.
-      // On desktop, getDownloadsDirectory is available. On mobile, fall back to app documents.
-      final downloads = await getDownloadsDirectory();
-      final targetDir = downloads ?? await getApplicationDocumentsDirectory();
-      final dest = File('${targetDir.path}/${_attachment.name}');
       final data = _data ?? await widget.state.readAttachmentBytes(widget.contractId, _attachment);
-      await dest.writeAsBytes(data, flush: true);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved to ${targetDir.path}')),
-      );
+      if (Platform.isAndroid) {
+        const ch = MethodChannel('downloads_saver');
+        final savedAt = await ch.invokeMethod<String>('save', {
+          'name': _attachment.name,
+          'bytes': data,
+        });
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Saved to $savedAt')),
+        );
+      } else {
+        // Attempt to copy to a visible Downloads-like directory.
+        final downloads = await getDownloadsDirectory();
+        final targetDir = downloads ?? await AppDirs.supportDir();
+        final dest = File('${targetDir.path}/${_attachment.name}');
+        await dest.writeAsBytes(data, flush: true);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Saved to ${targetDir.path}')),
+        );
+      }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

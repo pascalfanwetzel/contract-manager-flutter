@@ -1,9 +1,11 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'storage_info_view.dart';
 import '../../../contracts/data/app_state.dart';
 
 class HelpFeedbackView extends StatefulWidget {
@@ -61,6 +63,11 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
                       label: 'Rate the app',
                       onTap: _rateApp,
                     ),
+                    _ActionChip(
+                      icon: Icons.folder_open_outlined,
+                      label: 'Storage info',
+                      onTap: _openStorageInfo,
+                    ),
                   ],
                 ),
               ],
@@ -76,9 +83,9 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: const [
               _Faq(q: 'Where are my files stored?', a: 'Only on your device in the app\'s private storage. Attachments are encrypted at rest.'),
-              _Faq(q: 'How do I export my data?', a: 'Go to Profile → Privacy → Export data to create a zip archive.'),
-              _Faq(q: 'Can I change reminder times?', a: 'Yes. Profile → Notifications & Reminders lets you pick lead times and time of day.'),
-              _Faq(q: 'How do I delete my data?', a: 'Use Profile → Privacy → Wipe local data to remove everything from this device.'),
+              _Faq(q: 'How do I export my data?', a: 'Go to Profile â†’ Privacy â†’ Export data to create a zip archive.'),
+              _Faq(q: 'Can I change reminder times?', a: 'Yes. Profile â†’ Notifications & Reminders lets you pick lead times and time of day.'),
+              _Faq(q: 'How do I delete my data?', a: 'Use Profile â†’ Privacy â†’ Wipe local data to remove everything from this device.'),
             ],
           ),
         ),
@@ -97,7 +104,7 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
                 leading: const Icon(Icons.play_circle_outline),
                 title: const Text('Getting started'),
                 onTap: () => _openDocs(context, 'Getting started',
-                    '• Create your first contract via +\n• Open a contract to see Attachments and Notes\n• Use Profile → Notifications to set reminders'),
+                    'â€¢ Create your first contract via +\nâ€¢ Open a contract to see Attachments and Notes\nâ€¢ Use Profile â†’ Notifications to set reminders'),
               ),
               const Divider(height: 1),
               ListTile(
@@ -111,7 +118,7 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
                 leading: const Icon(Icons.alarm_on_outlined),
                 title: const Text('Reminders'),
                 onTap: () => _openDocs(context, 'Reminders',
-                    'Configure lead times (1/7/14/30 days) and a time of day in Profile → Notifications & Reminders. The app schedules local notifications for contracts with end dates.'),
+                    'Configure lead times (1/7/14/30 days) and a time of day in Profile â†’ Notifications & Reminders. The app schedules local notifications for contracts with end dates.'),
               ),
             ],
           ),
@@ -144,7 +151,7 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
           child: ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('App info'),
-            subtitle: Text(info == null ? 'Loading…' : 'Version ${info.version} (${info.buildNumber})'),
+            subtitle: Text(info == null ? 'Loadingâ€¦' : 'Version ${info.version} (${info.buildNumber})'),
           ),
         ),
       ],
@@ -168,7 +175,13 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
         ..writeln('AllowShare=${widget.state.allowShare}, AllowDownload=${widget.state.allowDownload}, BlockScreenshots=${widget.state.blockScreenshots}')
         ..writeln('Auto-empty trash: enabled=${widget.state.autoEmptyTrashEnabled}, days=${widget.state.autoEmptyTrashDays}');
       await file.writeAsString(buf.toString(), flush: true);
-      await Share.shareXFiles([XFile(file.path)], subject: 'Diagnostics');
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'Diagnostics',
+          text: 'Diagnostics report from Contract Manager',
+        ),
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create diagnostics: $e')));
@@ -207,6 +220,13 @@ class _HelpFeedbackViewState extends State<HelpFeedbackView> {
     } catch (_) {
       // ignore
     }
+  }
+
+  void _openStorageInfo() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const StorageInfoView()),
+    );
   }
 
   void _openDocs(BuildContext context, String title, String text) {
@@ -252,3 +272,5 @@ class _Faq extends StatelessWidget {
     );
   }
 }
+
+

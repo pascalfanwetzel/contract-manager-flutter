@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Content-addressed blobs (SHA-256 hex filename) under each user
+    match /users/{uid}/blobs/{hash} {
+      allow read: if request.auth != null && request.auth.uid == uid && hash.matches('^[a-f0-9]{64}$');
+      // Allow create/update (request.resource != null), block client deletes (request.resource == null)
+      allow write: if request.auth != null && request.auth.uid == uid && hash.matches('^[a-f0-9]{64}$') && request.resource != null && request.resource.size < 25 * 1024 * 1024;
+    }
+  }
+}

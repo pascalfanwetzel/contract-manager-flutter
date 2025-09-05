@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../contracts/data/app_state.dart';
@@ -82,7 +83,8 @@ class _UserInfoViewState extends State<UserInfoView> {
         if (combined != p.name || _email.text != p.email || _phone.text != (p.phone ?? '')) {
           _syncFromState();
         }
-        final avatar = p.photoPath != null && p.photoPath!.isNotEmpty ? File(p.photoPath!) : null;
+        final avatarFile = p.photoPath != null && p.photoPath!.isNotEmpty ? File(p.photoPath!) : null;
+        final hasMem = p.photoBytes != null && p.photoBytes!.isNotEmpty;
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -92,8 +94,10 @@ class _UserInfoViewState extends State<UserInfoView> {
                 children: [
                   CircleAvatar(
                     radius: 40,
-                    backgroundImage: avatar != null ? FileImage(avatar) : null,
-                    child: avatar == null
+                    backgroundImage: hasMem
+                        ? MemoryImage(Uint8List.fromList(p.photoBytes!))
+                        : (avatarFile != null ? FileImage(avatarFile) : null),
+                    child: (hasMem || avatarFile != null)
                         ? (p.name.trim().isEmpty
                             ? const Icon(Icons.person, size: 36)
                             : Text(p.initials, style: const TextStyle(fontSize: 24)))
@@ -148,8 +152,9 @@ class _UserInfoViewState extends State<UserInfoView> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _locale,
-              decoration: const InputDecoration(labelText: 'Locale'),
+              decoration: const InputDecoration(labelText: 'Language'),
               items: [
                 DropdownMenuItem(value: 'en-US', child: Text('English (US)')),
                 DropdownMenuItem(value: 'en-GB', child: Text('English (UK)')),
@@ -162,6 +167,7 @@ class _UserInfoViewState extends State<UserInfoView> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _currency,
               decoration: const InputDecoration(labelText: 'Currency'),
               items: [
@@ -176,6 +182,7 @@ class _UserInfoViewState extends State<UserInfoView> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _country,
               decoration: const InputDecoration(labelText: 'Country'),
               items: [

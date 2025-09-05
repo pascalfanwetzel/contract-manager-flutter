@@ -6,6 +6,7 @@ import '../data/app_state.dart';
 import '../../../app/routes.dart' as r;
 import 'widgets.dart';
 import 'attachments_card.dart';
+import 'contract_create_flow.dart';
 import 'notes_card.dart';
 
 class ContractView extends StatefulWidget {
@@ -35,15 +36,27 @@ class _ContractViewState extends State<ContractView> {
                 IconButton(
                   tooltip: 'Edit',
                   icon: const Icon(Icons.edit_outlined),
-                    onPressed: () async {
-                      final updated = await context.push<Contract>(
-                        r.AppRoutes.contractNew,
-                        extra: c,
-                      );
-                      if (updated != null) {
-                        widget.state.updateContract(updated);
-                      }
-                    },
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    await showModalBottomSheet<bool>(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      showDragHandle: true,
+                      builder: (ctx) => FractionallySizedBox(
+                        heightFactor: 0.96,
+                        child: ContractCreateFlow(state: widget.state, editing: c),
+                      ),
+                    );
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Changes saved'),
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
                 ),
             ],
           ),
@@ -118,36 +131,93 @@ class _ContractViewState extends State<ContractView> {
 
           if (!c.isDeleted)
             (c.isActive
-                ? OutlinedButton.icon(
-                    onPressed: () async {
-                      final ok = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('End contract'),
-                          content:
-                              const Text('Mark this contract as ended today?'),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.of(ctx).pop(false),
-                                child: const Text('Cancel')),
-                            FilledButton(
-                                onPressed: () => Navigator.of(ctx).pop(true),
-                                child: const Text('End')),
-                          ],
-                        ),
-                      );
-                      if (ok == true) {
-                        widget.state.updateContract(
-                            c.copyWith(isActive: false, endDate: DateTime.now()));
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Contract ended')),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.stop_circle_outlined),
-                    label: const Text('End contract'),
-                  )
+                ? (c.isExpired
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () async {
+                                await showModalBottomSheet<bool>(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  useSafeArea: true,
+                                  showDragHandle: true,
+                                  builder: (ctx) => FractionallySizedBox(
+                                    heightFactor: 0.96,
+                                    child: ContractCreateFlow(
+                                      state: widget.state,
+                                      editing: c,
+                                      initialStep: 1, // Billing
+                                      showRenewalPrompt: true,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.autorenew),
+                              label: const Text('Renew'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () async {
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('End contract'),
+                                    content: const Text('Mark this contract as ended today?'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                                      FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('End')),
+                                    ],
+                                  ),
+                                );
+                                if (ok == true) {
+                                  widget.state.updateContract(c.copyWith(isActive: false, endDate: DateTime.now()));
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Contract ended')),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.stop_circle_outlined),
+                              label: const Text('Terminate'),
+                            ),
+                          ),
+                        ],
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: () async {
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('End contract'),
+                              content: const Text('Mark this contract as ended today?'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                                FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('End')),
+                              ],
+                            ),
+                          );
+                          if (ok == true) {
+                            widget.state.updateContract(c.copyWith(isActive: false, endDate: DateTime.now()));
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Contract ended')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.stop_circle_outlined),
+                        label: const Text('End contract'),
+                      ))
                 : FilledButton.icon(
                     onPressed: null,
                     style: FilledButton.styleFrom(

@@ -27,8 +27,17 @@ class _NotesCardState extends State<NotesCard> {
 
   void _scheduleSave(String text, Contract current) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      widget.state.updateContract(current.copyWith(notes: text));
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      final ok = await widget.state.trySaveNote(current.id, text);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save note'),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     });
   }
 

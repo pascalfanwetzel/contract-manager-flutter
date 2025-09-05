@@ -3,7 +3,8 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'dart:math';
 import 'package:cryptography/cryptography.dart';
-import 'package:path_provider/path_provider.dart';
+// path_provider not needed; we use AppDirs
+import '../fs/app_dirs.dart';
 
 import 'key_service.dart';
 
@@ -12,7 +13,7 @@ class PassphraseService {
   static const _iterations = 310000; // PBKDF2-HMAC-SHA256 strong cost
 
   static Future<File> _file() async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await AppDirs.supportDir();
     return File('${dir.path}/$_fileName');
   }
 

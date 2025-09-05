@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class UserProfile {
   final String name;
   final String email;
@@ -6,7 +8,8 @@ class UserProfile {
   final String timezone; // IANA id or display string
   final String currency; // e.g., EUR
   final String country; // ISO 2-letter
-  final String? photoPath; // local path to avatar image
+  final String? photoPath; // deprecated: local path to avatar image
+  final Uint8List? photoBytes; // avatar stored in DB
 
   const UserProfile({
     required this.name,
@@ -17,6 +20,7 @@ class UserProfile {
     required this.currency,
     required this.country,
     this.photoPath,
+    this.photoBytes,
   });
 
   String get initials {
@@ -36,6 +40,7 @@ class UserProfile {
     String? currency,
     String? country,
     String? photoPath,
+    Uint8List? photoBytes,
   }) {
     return UserProfile(
       name: name ?? this.name,
@@ -46,6 +51,7 @@ class UserProfile {
       currency: currency ?? this.currency,
       country: country ?? this.country,
       photoPath: photoPath ?? this.photoPath,
+      photoBytes: photoBytes ?? this.photoBytes,
     );
   }
 
@@ -58,6 +64,7 @@ class UserProfile {
         'currency': currency,
         'country': country,
         'photoPath': photoPath,
+        'photoBytes': photoBytes,
       };
 
   static UserProfile fromJson(Map<String, dynamic> j) => UserProfile(
@@ -69,6 +76,6 @@ class UserProfile {
         currency: (j['currency'] as String?) ?? 'EUR',
         country: (j['country'] as String?) ?? 'US',
         photoPath: j['photoPath'] as String?,
+        photoBytes: j['photoBytes'] as Uint8List?,
       );
 }
-

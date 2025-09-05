@@ -3,7 +3,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:path_provider/path_provider.dart';
+// path_provider not needed; we use AppDirs
+import '../fs/app_dirs.dart';
 
 import '../../features/contracts/domain/models.dart';
 
@@ -25,14 +26,8 @@ class NotificationService {
     const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
     await _plugin.initialize(initSettings);
 
-    // Android 13+ runtime permission
-    if (Platform.isAndroid) {
-      final androidImpl = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      final enabled = await androidImpl?.areNotificationsEnabled();
-      if (enabled == false) {
-        await androidImpl?.requestNotificationsPermission();
-      }
-    }
+    // Do not request runtime permission here to avoid layout churn during startup.
+    // Call requestPermissionIfNeeded() later after first frame or from a user action.
 
     // Timezone setup
     try {
@@ -52,6 +47,21 @@ class NotificationService {
     }
 
     _initialized = true;
+  }
+
+  /// Requests Android 13+ notification permission if not already granted.
+  /// Safe to call multiple times; it checks current state first.
+  Future<void> requestPermissionIfNeeded() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      final enabled = await androidImpl?.areNotificationsEnabled();
+      if (enabled == false) {
+        await androidImpl?.requestNotificationsPermission();
+      }
+    } catch (_) {
+      // Ignore permission errors
+    }
   }
 
   Future<void> cancelForContract(String contractId) async {
@@ -112,7 +122,7 @@ class NotificationService {
   // Returns true if migration should run (marker newly created), false if already done.
   Future<bool> _ensureMigrationMarker() async {
     try {
-      final dir = await getApplicationDocumentsDirectory();
+      final dir = await AppDirs.supportDir();
       final f = File('${dir.path}/notif_id_migrated_v1');
       if (await f.exists()) return false;
       await f.writeAsString('ok', flush: true);

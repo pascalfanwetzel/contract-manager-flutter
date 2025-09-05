@@ -5,7 +5,8 @@ import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:path_provider/path_provider.dart';
+// path_provider not needed; we use AppDirs
+import '../fs/app_dirs.dart';
 
 import 'key_service.dart';
 
@@ -101,7 +102,7 @@ class ProvisioningService {
   /// Attempts to auto-unlock by reading a locally stored wrapped MK.
   Future<bool> tryAutoUnlock() async {
     try {
-      final dir = await getApplicationDocumentsDirectory();
+      final dir = await AppDirs.supportDir();
       final devId = await deviceId();
       final file = File('${dir.path}/wrapped/$devId.mk');
       if (!await file.exists()) return false;
@@ -116,7 +117,7 @@ class ProvisioningService {
 
   /// Persists a wrapped MK blob for this device (used for local testing/provisioning).
   Future<void> saveWrappedForThisDevice(Map<String, dynamic> wrapped) async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await AppDirs.supportDir();
     final devId = await deviceId();
     final folder = Directory('${dir.path}/wrapped');
     if (!await folder.exists()) await folder.create(recursive: true);

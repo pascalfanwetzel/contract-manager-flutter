@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Per-user oplog used for sync
+    match /users/{uid}/oplog/{opId} {
+      // Only the authenticated owner can read/write their ops
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      function _isString(v) { return v is string && v.size() <= 4096; }
+      function _isNumber(v) { return v is int || v is float; }
+
+      // Validate basic fields and enums on create/update
+      allow create, update: if
+        _isString(request.resource.data.entity_id) &&
+        _isString(request.resource.data.device_id) &&
+        _isNumber(request.resource.data.ts) && request.resource.data.ts > 0 &&
+        _isNumber(request.resource.data.rev) && request.resource.data.rev >= 0 &&
+        (request.resource.data.fields == null || request.resource.data.fields is map) &&
+        (request.resource.data.entity in ['category','contract','attachment','note','settings','profile']) &&
+        (request.resource.data.op in ['put','delete','purge']);
+    }
+
+    // Per-user wrapped cloud keys (passphrase/recovery). Owner-only access.
+    match /users/{uid}/keys/{keyId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Basic validation for wrapped DEK documents
+      allow create, update: if
+        // Limit to known document IDs
+        (keyId in ['wrapped_dek_pp_v1', 'wrapped_dek_rc_v1']) &&
+        // Require only expected fields
+        request.resource.data.keys().hasOnly(['v','type','alg','kdf','iterations','salt','nonce','wrapped','createdAt']) &&
+        // Field constraints
+        request.resource.data.v == 1 &&
+        (request.resource.data.type in ['pp','rc']) &&
+        request.resource.data.alg == 'aes-gcm-256' &&
+        request.resource.data.kdf == 'pbkdf2-hmac-sha256' &&
+        (request.resource.data.iterations is int || request.resource.data.iterations is float) && request.resource.data.iterations >= 100000 &&
+        (request.resource.data.salt is string) && (request.resource.data.nonce is string) && (request.resource.data.wrapped is string) &&
+        (request.resource.data.createdAt is int || request.resource.data.createdAt is float) && request.resource.data.createdAt > 0;
+    }
+
+    // Per-user attachment index docs used for ref-counting blobs
+    match /users/{uid}/attachments_index/{hash} {
+      allow read, write: if request.auth != null && request.auth.uid == uid && hash.matches('^[A-Fa-f0-9]{64}$');
+      allow create, update: if
+        request.resource.data.keys().hasOnly(['refcount','lastSeenTs']) &&
+        (request.resource.data.refcount is int || request.resource.data.refcount is float) &&
+        (request.resource.data.lastSeenTs is int || request.resource.data.lastSeenTs is float);
+    }
+  }
+}

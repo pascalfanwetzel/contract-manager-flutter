@@ -111,23 +111,42 @@ class _OverviewPageState extends State<OverviewPage> {
                       : null,
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(firstName.isEmpty ? 'Hello!' : 'Hello, $firstName!'),
-                    Text(
-                      _fmtFriendlyToday(),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7)),
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(firstName.isEmpty ? 'Hello!' : 'Hello, $firstName!'),
+                      Row(
+                        children: [
+                          Text(
+                            _fmtFriendlyToday(),
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7)),
+                          ),
+                          const Spacer(),
+                          if (widget.state.cloudSyncEnabled) _syncStatusTag(context, widget.state),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          body: ListView(
+          body: RefreshIndicator(
+            onRefresh: () async {
+              if (!widget.state.cloudSyncEnabled) {
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.showSnackBar(const SnackBar(content: Text('Cloud sync is disabled')));
+                await Future.delayed(const Duration(milliseconds: 200));
+                return;
+              }
+              await widget.state.syncNow();
+            },
+            child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // Removed extra syncing banner; the tag and pull-to-refresh spinner are sufficient
               // Total spend card with month/year toggle
               Card(
                 color: spendTint,
@@ -268,6 +287,7 @@ class _OverviewPageState extends State<OverviewPage> {
               ),
             ],
           ),
+        )
         );
       },
     );
@@ -292,6 +312,53 @@ class _OverviewPageState extends State<OverviewPage> {
     final wd = weekdays[(now.weekday - 1).clamp(0, 6)];
     final mon = months[(now.month - 1).clamp(0, 11)];
     return '$wd, $mon ${now.day}';
+  }
+
+  // Deprecated verbose status text removed; tag shows a constant label with color only.
+
+  // Rounded tag widget showing a constant label; color indicates state
+  Widget _syncStatusTag(BuildContext context, AppState state) {
+    const baseText = 'Sync';
+    return FutureBuilder<bool>(
+      future: state.hasPendingLocalOps(),
+      builder: (context, snapshot) {
+        final pending = snapshot.data ?? false;
+        final hasError = state.lastSyncError != null;
+        final hasEverSynced = state.lastSyncTs != null;
+        final isHealthy = !pending && hasEverSynced && !hasError;
+
+        // Use light scheme colors in both light and dark modes for better contrast
+        const seed = Color(0xFFD5DEDD);
+        final lightScheme = ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light);
+        final Color bg = (state.isSyncing || isHealthy) ? lightScheme.primaryContainer : lightScheme.surfaceContainerHighest;
+        final Color fg = (state.isSyncing || isHealthy) ? lightScheme.onPrimaryContainer : lightScheme.onSurfaceVariant;
+        return Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Opacity(
+                opacity: state.isSyncing ? 0 : 1,
+                child: Text(
+                  baseText,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg, fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (state.isSyncing)
+                const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

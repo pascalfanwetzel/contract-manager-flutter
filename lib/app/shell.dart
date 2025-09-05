@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/contracts/data/app_state.dart';
@@ -33,6 +34,7 @@ class HomeShell extends StatelessWidget {
             state: state,
             child: SafeArea(child: child),
           ),
+          // Auth overlay removed: we redirect to Welcome page instead
           if (state.isLocked) const _UnlockOverlay(),
         ],
       ),
@@ -66,15 +68,22 @@ class HomeShell extends StatelessWidget {
   }
 }
 
+// Auth overlay removed; Welcome page handles sign-in UX.
+
 Widget _profileTabIcon(AppState state, {required bool selected}) {
   final p = state.profile;
-  final hasPhoto = (p.photoPath != null && p.photoPath!.isNotEmpty && File(p.photoPath!).existsSync());
+  final hasPhotoMem = p.photoBytes != null && p.photoBytes!.isNotEmpty;
+  final hasPhotoFile = (p.photoPath != null && p.photoPath!.isNotEmpty && File(p.photoPath!).existsSync());
   final double radius = 12; // fits nicely in NavigationBar
+  final ImageProvider? imgProvider = hasPhotoMem
+      ? MemoryImage(Uint8List.fromList(p.photoBytes!))
+      : (hasPhotoFile ? FileImage(File(p.photoPath!)) : null);
+
   final avatar = CircleAvatar(
     radius: radius,
     backgroundColor: selected ? Colors.blueGrey.shade100 : Colors.grey.shade300,
-    backgroundImage: hasPhoto ? FileImage(File(p.photoPath!)) : null,
-    child: hasPhoto
+    backgroundImage: imgProvider,
+    child: (hasPhotoMem || hasPhotoFile)
         ? null
         : (p.name.trim().isEmpty
             ? Icon(Icons.person, size: 16, color: Colors.grey.shade800)
