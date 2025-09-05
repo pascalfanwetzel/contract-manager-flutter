@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../domain/models.dart';
 import '../data/app_state.dart';
-import '../../../app/routes.dart' as r;
 import 'widgets.dart';
 import 'attachments_card.dart';
 import 'contract_create_flow.dart';
